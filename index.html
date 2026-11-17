@@ -4,13 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Noah Zheng · 电控与嵌入式</title>
-  <meta name="description" content="Noah Zheng —— 本科学生，RoboMaster 电控与嵌入式。原理图、CAN 总线、电机控制，以及一个用等宽字符渲染的个人站。" />
-  <meta name="theme-color" content="#0a0b08" />
+  <meta name="description" content="Noah Zheng —— 本科学生，RoboMaster 电控与嵌入式。原理图、CAN 总线、电机控制，以及一个用等宽字符渲染的黑洞。" />
+  <meta name="theme-color" content="#0a0a0a" />
   <meta name="color-scheme" content="dark light" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Noah Zheng · 电控与嵌入式" />
   <meta property="og:description" content="本科学生，RoboMaster 电控与嵌入式。原理图、CAN 总线、电机控制。" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%230a0b08'/%3E%3Ctext%20x='16'%20y='21'%20font-family='monospace'%20font-size='13'%20fill='%23e8e6d9'%20text-anchor='middle'%3E%5B%5D%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%230a0a0a'/%3E%3Ccircle%20cx='16'%20cy='16'%20r='7'%20fill='none'%20stroke='%23f0f0f0'%20stroke-width='1.5'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
@@ -18,7 +18,7 @@
 </head>
 <body>
   <!-- ══════════════════════════════════════════════════════════
-       Boot overlay — the fake system check on first paint
+       Boot overlay
        ══════════════════════════════════════════════════════════ -->
   <div class="boot" id="boot" aria-hidden="true">
     <div class="boot-inner">
@@ -35,7 +35,6 @@
 
   <a class="skip-link" href="#main"><span lang="zh">跳到正文</span><span lang="en">Skip to content</span></a>
 
-  <!-- custom reticle (desktop only) -->
   <div class="reticle" id="reticle" aria-hidden="true">
     <span class="reticle-ring"></span>
     <span class="reticle-x"></span>
@@ -56,9 +55,8 @@
 
       <nav class="nav" aria-label="Sections">
         <a href="#about" data-nav="about"><span>01</span><span lang="zh">关于</span><span lang="en">README</span></a>
-        <a href="#work" data-nav="work"><span>02</span><span lang="zh">项目</span><span lang="en">WORK</span></a>
-        <a href="#stack" data-nav="stack"><span>03</span><span lang="zh">技术栈</span><span lang="en">STACK</span></a>
-        <a href="#contact" data-nav="contact"><span>04</span><span lang="zh">联系</span><span lang="en">CONTACT</span></a>
+        <a href="#stack" data-nav="stack"><span>02</span><span lang="zh">技术栈</span><span lang="en">STACK</span></a>
+        <a href="#contact" data-nav="contact"><span>03</span><span lang="zh">联系</span><span lang="en">CONTACT</span></a>
       </nav>
 
       <div class="topbar-actions">
@@ -74,13 +72,12 @@
 
   <main id="main">
     <!-- ══════════════════════════════════════════════════════════
-         HERO — canvas ASCII torus lives here
+         HERO — ASCII black hole in the middle, projects orbiting it
          ══════════════════════════════════════════════════════════ -->
     <section class="hero" id="top" aria-label="Introduction">
       <canvas id="field" class="field" aria-hidden="true"></canvas>
-      <div class="hero-glow" aria-hidden="true"></div>
 
-      <div class="container hero-inner">
+      <div class="hero-caption">
         <p class="eyebrow">
           <span class="pulse" aria-hidden="true"></span>
           <span data-bind="handle">@AAA-996</span>
@@ -89,48 +86,20 @@
           <span lang="en">UNDERGRADUATE · ROBOMASTER</span>
         </p>
 
-        <h1 class="display">
-          <span>NOAH</span>
-          <span>ZHENG</span>
-        </h1>
+        <h1 class="display">NOAH ZHENG</h1>
 
         <p class="kinetic">
           <span class="kinetic-tick" aria-hidden="true">▍</span>
           <span id="typed">在学电控。</span><span class="caret" aria-hidden="true"></span>
         </p>
 
-        <p class="lede">
-          <span lang="zh">我叫 Noah，本科在读，在 RoboMaster 战队里做电控与嵌入式。日常在示波器、原理图和<span class="nowrap">一堆 <code>.c</code> 文件</span>之间来回——从画第一块最小系统板，到让它在一台真会撞墙的机器人上活下来。</span>
-          <span lang="en">I'm Noah, an undergraduate doing electronics and embedded work on a RoboMaster team. Most days are spent between an oscilloscope, a schematic and a pile of <code>.c</code> files — from the first minimum-system board to keeping it alive on a robot that really does hit walls.</span>
+        <p class="orbit-hint">
+          <span lang="zh">点击下面的项目，看它做了什么</span>
+          <span lang="en">click a project to open it</span>
         </p>
-
-        <div class="hero-actions">
-          <a class="btn btn-solid" href="#work">
-            <span lang="zh">看项目</span><span lang="en">VIEW WORK</span><span class="btn-arrow" aria-hidden="true">↗</span>
-          </a>
-          <button class="btn" data-copy="email">
-            <span lang="zh">复制邮箱</span><span lang="en">COPY EMAIL</span>
-          </button>
-          <button class="btn btn-quiet" data-palette-open>
-            <kbd>⌘</kbd><kbd>K</kbd><span lang="zh">命令</span><span lang="en">COMMANDS</span>
-          </button>
-        </div>
-
-        <ul class="hero-meta">
-          <li>
-            <span class="k" lang="zh">坐标</span><span class="k" lang="en">BASED</span>
-            <span lang="zh">中国 · UTC+8</span><span lang="en">China · UTC+8</span>
-          </li>
-          <li>
-            <span class="k" lang="zh">状态</span><span class="k" lang="en">MODE</span>
-            <span class="live" lang="zh">欢迎交流</span><span class="live" lang="en">open to talk</span>
-          </li>
-          <li>
-            <span class="k" lang="zh">更新</span><span class="k" lang="en">UPDATED</span>
-            <span>2026.11</span>
-          </li>
-        </ul>
       </div>
+
+      <div class="orbit" id="orbit"></div>
 
       <div class="hero-rail" aria-hidden="true">
         <span lang="zh">向下滚动</span><span lang="en">SCROLL</span><i></i>
@@ -229,41 +198,12 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════
-         02 / WORK  — rendered from CONFIG in assets/js/data.js
-         ══════════════════════════════════════════════════════════ -->
-    <section class="panel" id="work" aria-labelledby="work-title">
-      <div class="container">
-        <header class="panel-head reveal">
-          <span class="panel-num">02</span>
-          <div class="panel-heading">
-            <p class="panel-label"><span lang="zh">精选项目</span><span lang="en">SELECTED WORK</span></p>
-            <h2 class="panel-title" id="work-title">
-              <span lang="zh">做过的东西<span class="accent">。</span></span>
-              <span lang="en">Things I shipped<span class="accent">.</span></span>
-            </h2>
-          </div>
-          <p class="panel-note" data-work-count>03 entries</p>
-        </header>
-
-        <div class="work-list" id="work-list"></div>
-        <noscript><p class="no-js-note">Enable JavaScript to see the project list.</p></noscript>
-
-        <footer class="work-footer reveal">
-          <a class="link-arrow" href="https://github.com/AAA-996" target="_blank" rel="noreferrer noopener">
-            <span lang="zh">GitHub 上还有别的</span><span lang="en">MORE ON GITHUB</span>
-            <span aria-hidden="true">↗</span>
-          </a>
-        </footer>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════════════════════
-         03 / STACK
+         02 / STACK
          ══════════════════════════════════════════════════════════ -->
     <section class="panel" id="stack" aria-labelledby="stack-title">
       <div class="container">
         <header class="panel-head reveal">
-          <span class="panel-num">03</span>
+          <span class="panel-num">02</span>
           <div class="panel-heading">
             <p class="panel-label"><span lang="zh">技术栈</span><span lang="en">STACK</span></p>
             <h2 class="panel-title" id="stack-title">
@@ -289,12 +229,12 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════
-         04 / CONTACT
+         03 / CONTACT
          ══════════════════════════════════════════════════════════ -->
     <section class="panel panel-contact" id="contact" aria-labelledby="contact-title">
       <div class="container">
         <header class="panel-head reveal">
-          <span class="panel-num">04</span>
+          <span class="panel-num">03</span>
           <div class="panel-heading">
             <p class="panel-label"><span lang="zh">联系</span><span lang="en">CONTACT</span></p>
             <h2 class="panel-title" id="contact-title">
@@ -328,6 +268,55 @@
       </div>
     </section>
   </main>
+
+  <!-- ══════════════════════════════════════════════════════════
+       Project overlay — replaces the view instead of scrolling
+       ══════════════════════════════════════════════════════════ -->
+  <dialog id="project-view" class="project-view" aria-labelledby="pv-title">
+    <div class="pv-shell">
+      <header class="pv-bar">
+        <span class="pv-crumb">
+          <span class="pv-idx" id="pv-idx">01</span>
+          <span class="pv-sep">/</span>
+          <span lang="zh">项目</span><span lang="en">WORK</span>
+          <span class="pv-sep">/</span>
+          <span id="pv-slug">—</span>
+        </span>
+        <button class="pv-close" id="pv-close" type="button">
+          <span aria-hidden="true">✕</span>
+          <span class="pv-close-txt" lang="zh">关闭</span>
+          <span class="pv-close-txt" lang="en">CLOSE</span>
+          <kbd>ESC</kbd>
+        </button>
+      </header>
+
+      <div class="pv-scroll" id="pv-scroll">
+        <div class="pv-body">
+          <p class="pv-meta" id="pv-meta"></p>
+          <h2 class="pv-title" id="pv-title"></h2>
+          <p class="pv-blurb" id="pv-blurb"></p>
+
+          <div class="pv-media" id="pv-media"></div>
+
+          <ul class="pv-tags" id="pv-tags"></ul>
+
+          <div class="pv-actions" id="pv-actions"></div>
+
+          <p class="pv-note" id="pv-note"></p>
+        </div>
+      </div>
+
+      <footer class="pv-foot">
+        <button class="pv-nav" id="pv-prev" type="button">
+          <span aria-hidden="true">←</span> <span lang="zh">上一个</span><span lang="en">PREV</span>
+        </button>
+        <span class="pv-counter" id="pv-counter">01 / 03</span>
+        <button class="pv-nav" id="pv-next" type="button">
+          <span lang="zh">下一个</span><span lang="en">NEXT</span> <span aria-hidden="true">→</span>
+        </button>
+      </footer>
+    </div>
+  </dialog>
 
   <!-- ══════════════════════════════════════════════════════════
        Fixed status bar

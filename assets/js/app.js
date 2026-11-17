@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    app.js — behaviour, no dependencies, no build step.
-     1  language (zh / en)    7  scroll progress + nav
+     1  language              7  scroll progress + nav
      2  content rendering     8  reveal on scroll
-     3  hero typing           9  custom reticle
-     4  ASCII field canvas   10  theme
-     5  boot sequence        11  copy / toast / clock
-     6  command palette
+     3  project overlay       9  custom reticle
+     4  hero typing          10  theme
+     5  ASCII black hole     11  copy / toast / clock
+     6  boot sequence        12  command palette
    ═══════════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -14,6 +14,7 @@
   var root = doc.documentElement;
   var CFG = window.CONFIG || {};
   var ID = CFG.identity || {};
+  var WORK = CFG.work || [];
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var skipBoot = reduceMotion || /[?&]noboot\b/.test(location.search);
 
@@ -24,6 +25,7 @@
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var rand = function (a, b) { return a + Math.random() * (b - a); };
   var pad = function (n) { return String(n).padStart(2, '0'); };
+  var TAU = Math.PI * 2;
 
   function esc(str) {
     return String(str).replace(/[&<>"]/g, function (c) {
@@ -40,14 +42,12 @@
     return root.getAttribute('data-lang') === 'en' ? 'en' : 'zh';
   }
 
-  // pick a string in the current language: 'text' | {zh, en}
   function pick(v) {
     if (v == null) return '';
     if (typeof v === 'string') return v;
     return v[lang()] || v.zh || v.en || '';
   }
 
-  // render both languages at once, CSS hides the inactive one
   function L(v) {
     if (v == null) return '';
     if (typeof v === 'string') return '<span>' + esc(v) + '</span>';
@@ -74,7 +74,7 @@
     }
   }
 
-  function setLang(next, silent) {
+  function setLang(next) {
     next = next === 'en' ? 'en' : 'zh';
     var changed = lang() !== next;
     root.setAttribute('data-lang', next);
@@ -82,6 +82,7 @@
     try { localStorage.setItem('lang', next); } catch (e) {}
     updateMeta();
     if (changed && typingReset) typingReset();
+    if (changed && projectView.isOpen()) projectView.refresh();
   }
 
   function toggleLang() {
@@ -114,69 +115,6 @@
     var words = (CFG.ticker || []).join(' · ') + ' · ';
     var chunk = '<span>' + esc(words + words + words) + '</span>';
     track.innerHTML = chunk + chunk;
-  }
-
-  function renderWork() {
-    var list = $('#work-list');
-    if (!list || !CFG.work) return;
-
-    var counter = $('[data-work-count]');
-    if (counter) {
-      counter.innerHTML =
-        pad(CFG.work.length) +
-        '&nbsp;<span lang="zh">个项目</span><span lang="en">entries</span>';
-    }
-
-    list.innerHTML = CFG.work
-      .map(function (w, i) {
-        var meta = [];
-        if (w.year) meta.push('<span>' + esc(w.year) + '</span>');
-        if (w.kind) meta.push('<span class="kind">' + L(w.kind) + '</span>');
-
-        var links = w.links || (w.link ? [w.link] : []);
-        var side = '';
-
-        if (links.length) {
-          side += links
-            .map(function (l, idx) {
-              return (
-                '<a class="work-link' + (idx === 0 ? ' is-main' : '') + '" href="' +
-                esc(l.href) + '" target="_blank" rel="noreferrer noopener">' +
-                L(l.label) + ' <span aria-hidden="true">↗</span></a>'
-              );
-            })
-            .join('');
-          if (w.private) {
-            side +=
-              '<span class="work-private"><span lang="zh">私有仓库</span>' +
-              '<span lang="en">PRIVATE</span></span>';
-          }
-        } else if (w.status) {
-          side = '<span class="work-status">' + L(w.status) + '</span>';
-        }
-
-        var tags = (w.tags || []).length
-          ? '<ul class="tags">' +
-            w.tags.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
-            '</ul>'
-          : '';
-
-        var single = links.length === 1;
-
-        return (
-          '<article class="work-row reveal' + (single ? ' has-link' : '') + '">' +
-          '<div class="work-idx">' + pad(i + 1) + '</div>' +
-          '<div class="work-main">' +
-          '<p class="work-meta">' + meta.join('') + '</p>' +
-          '<h3 class="work-title">' + L(w.title) + '</h3>' +
-          (w.blurb ? '<p class="work-blurb">' + L(w.blurb) + '</p>' : '') +
-          tags +
-          '</div>' +
-          '<div class="work-side">' + side + '</div>' +
-          '</article>'
-        );
-      })
-      .join('');
   }
 
   function renderStack() {
@@ -213,7 +151,237 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     5. boot sequence
+     orbit: projects arranged around the black hole
+     ───────────────────────────────────────────────────────────────────── */
+  var orbitState = { slots: [], cx: 0, cy: 0, rx: 0, ry: 0, active: false };
+
+  function renderOrbit() {
+    var orbit = $('#orbit');
+    if (!orbit) return;
+    orbit.innerHTML = WORK.map(function (w, i) {
+      return (
+        '<div class="orbit-slot" data-slot="' + i + '">' +
+        '<button class="node" type="button" data-project="' + i + '" ' +
+        'aria-label="' + esc(pick(w.title)) + '">' +
+        '<span class="node-idx">' + pad(i + 1) + '</span>' +
+        '<span class="node-arrow" aria-hidden="true">↗</span>' +
+        '<span class="node-title">' + L(w.short || w.title) + '</span>' +
+        '<span class="node-kind">' + L(w.kind || '') + '</span>' +
+        '</button></div>'
+      );
+    }).join('');
+
+    orbitState.slots = $$('.orbit-slot', orbit);
+
+    orbit.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-project]');
+      if (btn) projectView.open(Number(btn.getAttribute('data-project')));
+    });
+  }
+
+  function layoutOrbit() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    var isPhone = w <= 780;
+
+    orbitState.active = !isPhone;
+    if (isPhone) return;
+
+    var R, cy;
+    if (w < 1100) {
+      R = Math.min(w * 0.155, h * 0.2);
+      cy = h * 0.56;
+    } else {
+      R = Math.min(w * 0.155, h * 0.235);
+      cy = h * 0.57;
+    }
+
+    var rx = Math.max(R * 2.55, w * 0.4);
+    var ry = Math.min(h * 0.29, 310);
+
+    orbitState.cx = w / 2;
+    orbitState.cy = cy;
+    orbitState.ox = 0;
+    // slots sit at the centre of the stage; this shifts the ring down to the hole
+    orbitState.oy = cy - h / 2;
+    orbitState.rx = rx;
+    orbitState.ry = ry;
+    orbitState.R = R;
+  }
+
+  var TILT = { x: 0, y: 0 };
+
+  function paintOrbit(t) {
+    if (!orbitState.active) return;
+    var base = [-Math.PI, 0, Math.PI / 2]; // left, right, bottom
+    for (var i = 0; i < orbitState.slots.length; i++) {
+      var a = base[i % base.length];
+      if (i >= base.length) a = base[i % base.length] + (i * TAU) / orbitState.slots.length;
+      // slow breathing drift so the ring never looks frozen
+      var drift = Math.sin(t * 0.00022 + i * 2.1) * 0.05;
+      var ang = a + drift;
+      // slots live at 50%/50% of the stage, so offsets are relative to it
+      var x = orbitState.ox + Math.cos(ang) * orbitState.rx;
+      var y = orbitState.oy + Math.sin(ang) * orbitState.ry;
+      // parallax
+      x += TILT.x * 14 * (i % 2 ? 1 : -1);
+      y += TILT.y * 10;
+      orbitState.slots[i].style.transform =
+        'translate(-50%, -50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
+     3. project overlay
+     ───────────────────────────────────────────────────────────────────── */
+  var projectView = (function () {
+    var dlg = null;
+    var current = -1;
+    var lastFocus = null;
+
+    function isOpen() {
+      return !!(dlg && dlg.open);
+    }
+
+    function mediaMarkup(w) {
+      var imgs = (w.images || []).filter(Boolean);
+      if (!imgs.length) return ''; // nothing at all — no placeholder, no margin
+      return imgs.map(function (src, i) {
+        return (
+          '<figure><img src="' + esc(src) + '" alt="' + esc(pick(w.title) + ' — ' + (i + 1)) +
+          '" loading="lazy" decoding="async"></figure>'
+        );
+      }).join('');
+    }
+
+    function fill(i) {
+      if (!dlg) return;
+      var w = WORK[i];
+      if (!w) return;
+      current = i;
+
+      $('#pv-idx').textContent = pad(i + 1);
+      dlg.setAttribute('data-idx', pad(i + 1));
+      $('#pv-slug').textContent = pick(w.title);
+      $('#pv-meta').innerHTML =
+        (w.year ? '<span>' + esc(w.year) + '</span>' : '') +
+        (w.kind ? '<span class="kind">' + L(w.kind) + '</span>' : '') +
+        (w.private
+          ? '<span><span lang="zh">私有仓库</span><span lang="en">PRIVATE REPO</span></span>'
+          : '');
+      $('#pv-title').innerHTML = L(w.title);
+      $('#pv-blurb').innerHTML = L(w.blurb || '');
+
+      var media = $('#pv-media');
+      media.innerHTML = mediaMarkup(w);
+      // a wrong path must not leave a broken frame behind
+      $$('img', media).forEach(function (img) {
+        img.addEventListener('error', function () {
+          var fig = img.closest('figure');
+          if (fig) fig.remove();
+          if (!media.querySelector('img')) media.innerHTML = '';
+        });
+      });
+
+      var tags = $('#pv-tags');
+      tags.innerHTML = (w.tags || []).map(function (t) {
+        return '<li>' + esc(t) + '</li>';
+      }).join('');
+      tags.hidden = !(w.tags || []).length;
+
+      var actions = $('#pv-actions');
+      var links = w.links || (w.link ? [w.link] : []);
+      if (links.length) {
+        actions.innerHTML = links.map(function (l) {
+          return (
+            '<a class="pv-link" href="' + esc(l.href) + '" target="_blank" rel="noreferrer noopener">' +
+            L(l.label) + ' <span aria-hidden="true">↗</span></a>'
+          );
+        }).join('');
+      } else if (w.status) {
+        actions.innerHTML = '<span class="pv-status">' + L(w.status) + '</span>';
+      } else {
+        actions.innerHTML = '';
+      }
+
+      var note = $('#pv-note');
+      note.innerHTML = w.private
+        ? '<span lang="zh">这个仓库目前是私有的，点进去会看到 404；需要的话可以直接邮件问我要。</span>' +
+          '<span lang="en">This repository is private right now — the link will 404. Ask me by email if you need access.</span>'
+        : '';
+
+      $('#pv-counter').textContent = pad(i + 1) + ' / ' + pad(WORK.length);
+      var scroll = $('#pv-scroll');
+      if (scroll) scroll.scrollTop = 0;
+    }
+
+    function open(i) {
+      if (!dlg || !WORK.length) return;
+      lastFocus = doc.activeElement;
+      fill(clamp(i, 0, WORK.length - 1));
+      if (!dlg.open) dlg.showModal();
+      doc.body.classList.add('is-locked');
+      var close = $('#pv-close');
+      if (close) close.focus({ preventScroll: true });
+      projectView.lastIndex = i;
+    }
+
+    function close() {
+      if (!dlg || !dlg.open) return;
+      dlg.close();
+    }
+
+    function step(dir) {
+      if (!WORK.length) return;
+      var next = (current + dir + WORK.length) % WORK.length;
+      fill(next);
+    }
+
+    function refresh() {
+      if (dlg && dlg.open && current >= 0) fill(current);
+    }
+
+    function init() {
+      dlg = $('#project-view');
+      if (!dlg) return;
+
+      var closeBtn = $('#pv-close');
+      if (closeBtn) closeBtn.addEventListener('click', close);
+
+      var prev = $('#pv-prev');
+      var next = $('#pv-next');
+      if (prev) prev.addEventListener('click', function () { step(-1); });
+      if (next) next.addEventListener('click', function () { step(1); });
+
+      // click on the empty area around the shell closes it
+      dlg.addEventListener('click', function (e) {
+        if (e.target === dlg) close();
+      });
+
+      dlg.addEventListener('close', function () {
+        doc.body.classList.remove('is-locked');
+        if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+      });
+
+      doc.addEventListener('keydown', function (e) {
+        if (!dlg.open) return;
+        if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      });
+    }
+
+    return {
+      init: init,
+      open: open,
+      close: close,
+      refresh: refresh,
+      isOpen: isOpen,
+      current: function () { return current; },
+    };
+  })();
+
+  /* ─────────────────────────────────────────────────────────────────────
+     6. boot sequence
      ───────────────────────────────────────────────────────────────────── */
   var bootDone = false;
   var bootSkip = null;
@@ -245,8 +413,8 @@
     var lines = [
       '> establishing uplink ',
       '> loading glyph atlas ',
-      '> calibrating gravity ',
-      '> rendering universe ',
+      '> collapsing mass ',
+      '> bending light ',
     ];
     var out = '';
     var i = 0;
@@ -289,12 +457,11 @@
     bootSkip = skip;
     window.addEventListener('keydown', skip);
     window.addEventListener('pointerdown', skip);
-    // hard cap so nobody ever stares at a frozen boot screen
     window.setTimeout(finishBoot, 3400);
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     3. hero typing
+     4. hero typing
      ───────────────────────────────────────────────────────────────────── */
   var typingStarted = false;
 
@@ -317,8 +484,7 @@
     }
 
     function showStatic() {
-      var list = phrases();
-      el.textContent = list[0] || '';
+      el.textContent = phrases()[0] || '';
     }
 
     function tick() {
@@ -380,7 +546,7 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     4. ASCII field: a torus of monospace glyphs
+     5. ASCII black hole
      ───────────────────────────────────────────────────────────────────── */
   function initField() {
     var canvas = $('#field');
@@ -389,34 +555,54 @@
     if (!ctx) return;
 
     var FONT = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
-    var GLYPHS = ['.', ',', ':', '-', '=', '+', '*', '#', '%', '@'];
-    var SIZES = [10, 13, 16];
+    // one pool, three brightness tiers — letters and digits, not just operators
+    var ALL = [
+      '.', '·', ':', ';', ',', '`', "'",
+      '-', '~', '=', '+', '*', 'x', 'o', 'c', 's', 'z', '/', '\\', '|',
+      '#', '%', '&', '@', '$', '0', '8', 'W', 'M', 'N', 'Q', 'Z', 'k',
+    ];
+    var TIER = [
+      [0, 1, 2, 3, 4, 5, 6],
+      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+      [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
+    ];
+    var SIZES = [9, 12, 15];
+
     var dpr = 1;
     var w = 0;
     var h = 0;
     var cell = 0;
     var atlas = null;
+    var tints = [];
     var raf = 0;
     var running = false;
     var last = 0;
     var time = 0;
-    var points = [];
-    var dust = [];
+    var disk = [];
+    var stars = [];
     var bursts = [];
-    var pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5, inside: false };
-    var tilt = { x: 0, y: 0 };
+    var pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
+    var geo = { cx: 0, cy: 0, R: 100 };
+
+    function hexA(hex, a) {
+      var s = String(hex).replace('#', '').trim();
+      if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+      var n = parseInt(s, 16);
+      if (isNaN(n)) return 'rgba(200,200,200,' + a + ')';
+      return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+    }
 
     function readTints() {
       var cs = getComputedStyle(root);
-      return [1, 2, 3, 4, 5].map(function (i) {
-        return cs.getPropertyValue('--t' + i).trim() || '#8a8a7a';
+      tints = [1, 2, 3, 4, 5].map(function (k) {
+        return (cs.getPropertyValue('--t' + k) || '#888888').trim();
       });
     }
 
     function buildAtlas() {
-      var tints = readTints();
-      cell = Math.ceil(18 * dpr);
-      var cols = GLYPHS.length;
+      readTints();
+      cell = Math.ceil(17 * dpr);
+      var cols = ALL.length;
       var rows = SIZES.length * tints.length;
       atlas = doc.createElement('canvas');
       atlas.width = cell * cols;
@@ -429,40 +615,46 @@
           a.font = '500 ' + SIZES[si] * dpr + 'px ' + FONT;
           a.fillStyle = tints[ti];
           for (var gi = 0; gi < cols; gi++) {
-            a.fillText(GLYPHS[gi], gi * cell + cell / 2, (ti * SIZES.length + si) * cell + cell / 2);
+            a.fillText(ALL[gi], gi * cell + cell / 2, (ti * SIZES.length + si) * cell + cell / 2);
           }
         }
       }
     }
 
-    function makePoints(n) {
-      var arr = [];
+    function makeDisk(n) {
+      var out = [];
       for (var i = 0; i < n; i++) {
-        arr.push({
-          u: Math.random() * Math.PI * 2,
-          v: Math.random() * Math.PI * 2,
-          accent: Math.random() < 0.055,
-          phase: Math.random() * Math.PI * 2,
-          speed: rand(0.75, 1.25),
+        // denser toward the inner edge
+        var t = Math.pow(Math.random(), 1.75);
+        var r = 1 + t * 1.05;
+        out.push({
+          r: r,
+          a: Math.random() * TAU,
+          w: 0.34 / (r * r) + 0.015,
+          thick: (Math.random() - 0.5) * (0.06 + 0.16 * t),
+          g0: TIER[0][(Math.random() * TIER[0].length) | 0],
+          g1: TIER[1][(Math.random() * TIER[1].length) | 0],
+          g2: TIER[2][(Math.random() * TIER[2].length) | 0],
+          phase: Math.random() * TAU,
+          back: Math.random() < 0.5,
         });
       }
-      return arr;
+      return out;
     }
 
-    function makeDust(n) {
-      var arr = [];
+    function makeStars(n) {
+      var out = [];
       for (var i = 0; i < n; i++) {
-        arr.push({
+        out.push({
           x: Math.random(),
           y: Math.random(),
-          z: rand(0.3, 1),
-          glyph: Math.floor(Math.random() * GLYPHS.length),
-          alpha: rand(0.1, 0.42),
-          drift: rand(0.000006, 0.000025),
-          phase: Math.random() * Math.PI * 2,
+          z: rand(0.25, 1),
+          g: (Math.random() * ALL.length) | 0,
+          alpha: rand(0.05, 0.3),
+          phase: Math.random() * TAU,
         });
       }
-      return arr;
+      return out;
     }
 
     function resize() {
@@ -474,103 +666,159 @@
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildAtlas();
-      var isMobile = w < 680;
-      var n = isMobile ? 720 : w < 1100 ? 860 : 1150;
-      points = makePoints(n);
-      dust = makeDust(isMobile ? 70 : 150);
+
+      var phone = w <= 780;
+      var n = phone ? 820 : w < 1100 ? 1700 : 2600;
+      disk = makeDisk(n);
+      stars = makeStars(phone ? 60 : 130);
+
       var badge = $('#sb-glyphs');
-      if (badge) badge.textContent = 'GLYPHS ' + (n + dust.length).toLocaleString('en-US');
+      if (badge) badge.textContent = 'GLYPHS ' + (n + stars.length).toLocaleString('en-US');
+
       if (!running) draw(performance.now());
     }
 
     function sprite(gi, si, ti) {
-      return {
-        sx: gi * cell,
-        sy: (ti * SIZES.length + si) * cell,
-        size: cell / dpr,
-      };
+      return { sx: gi * cell, sy: (ti * SIZES.length + si) * cell, size: cell / dpr };
+    }
+
+    function plot(gi, ti, x, y, alpha, scale) {
+      var sp = sprite(gi, 1, ti);
+      var size = sp.size * scale;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(atlas, sp.sx, sp.sy, cell, cell, x - size / 2, y - size / 2, size, size);
     }
 
     function draw(t) {
       ctx.clearRect(0, 0, w, h);
       if (!atlas) return;
 
-      var narrow = w < 1100;
-      var cx, cy, span, brightness;
-      if (narrow) {
-        cx = w * 0.5 + (pointer.x - 0.5) * 14;
-        cy = h * 0.96 + (pointer.y - 0.5) * 8;
-        span = Math.min(w * 0.44, h * 0.42);
-        brightness = 1.15;
+      var phone = w <= 780;
+      var R, cx, cy;
+      if (phone) {
+        R = Math.min(w * 0.3, h * 0.15);
+        cx = w / 2;
+        cy = h * 0.42;
+      } else if (w < 1100) {
+        R = Math.min(w * 0.155, h * 0.2);
+        cx = w / 2;
+        cy = h * 0.56;
       } else {
-        var textEdge = Math.min(480, w * 0.42);
-        var room = w - textEdge;
-        cx = textEdge + room * 0.52 + (pointer.x - 0.5) * 46;
-        cy = h * 0.455 + (pointer.y - 0.5) * 30;
-        span = room * 0.3;
-        brightness = 1;
+        R = Math.min(w * 0.155, h * 0.235);
+        cx = w / 2;
+        cy = h * 0.57;
+      }
+      geo = { cx: cx, cy: cy, R: R };
+
+      var FLAT = 0.34;
+
+      // atmosphere
+      var glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.5);
+      glow.addColorStop(0, hexA(tints[3], 0.1));
+      glow.addColorStop(0.4, hexA(tints[3], 0.045));
+      glow.addColorStop(1, hexA(tints[3], 0));
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+
+      // stars (parallax behind everything)
+      for (var s = 0; s < stars.length; s++) {
+        var st = stars[s];
+        var sx = st.x * w + (pointer.x - 0.5) * 26 * st.z;
+        var sy = st.y * h + (pointer.y - 0.5) * 20 * st.z;
+        var tw = 0.55 + 0.45 * Math.sin(time * 1.1 + st.phase);
+        plot(st.g, st.z > 0.75 ? 2 : st.z > 0.45 ? 1 : 0, sx, sy, st.alpha * tw * 0.8, 0.85);
       }
 
-      var ay = time * 0.22 + tilt.x * 0.55;
-      var ax = -0.92 + tilt.y * 0.36;
-      var cAy = Math.cos(ay), sAy = Math.sin(ay);
-      var cAx = Math.cos(ax), sAx = Math.sin(ax);
-      var R = 1.02, r = 0.34, cam = 3.25, focal = 2.15;
+      var i, p, a, r, ca, sa;
 
-      for (var d = 0; d < dust.length; d++) {
-        var p = dust[d];
-        p.x += p.drift;
-        if (p.x > 1.05) p.x = -0.05;
-        var dx = p.x * w + Math.sin(time * 0.5 + p.phase) * 6;
-        var dy = p.y * h + Math.cos(time * 0.34 + p.phase) * 5;
-        var sx0 = dx + (pointer.x - 0.5) * 14 * p.z;
-        var sy0 = dy + (pointer.y - 0.5) * 14 * p.z;
-        var sp0 = sprite(p.glyph, 0, 1);
-        ctx.globalAlpha = p.alpha * (0.6 + 0.4 * Math.sin(time * 0.9 + p.phase));
-        ctx.drawImage(atlas, sp0.sx, sp0.sy, cell, cell, sx0, sy0, sp0.size, sp0.size);
+      /* ── lensed halo: the far side of the disk bent over the top ── */
+      for (i = 0; i < disk.length; i++) {
+        p = disk[i];
+        a = p.a + time * p.w;
+        sa = Math.sin(a);
+        if (sa >= 0) continue;
+        r = p.r;
+        ca = Math.cos(a);
+        var hb = clamp((2.05 - r) / 1.05, 0, 1);
+        var hAlpha = (0.1 + 0.75 * Math.pow(hb, 1.5)) * 0.62;
+        if (hAlpha < 0.03) continue;
+        var hx = cx + ca * r * R * 0.99;
+        var hy = cy - Math.abs(sa) * r * R * 0.76 + p.thick * R * 0.6;
+        var hti = hAlpha > 0.55 ? 3 : hAlpha > 0.32 ? 2 : 1;
+        plot(hti >= 3 ? p.g2 : p.g1, hti, hx, hy, Math.min(1, hAlpha), 0.9);
       }
 
-      for (var i = 0; i < points.length; i++) {
-        var pt = points[i];
-        var u = pt.u + time * 0.06 * pt.speed;
-        var v = pt.v;
-        var cu = Math.cos(u), su = Math.sin(u);
-        var cv = Math.cos(v), sv = Math.sin(v);
-        var rad = R + r * cv;
-        var x0 = rad * cu;
-        var y0 = r * sv;
-        var z0 = rad * su;
-
-        var x1 = x0 * cAy + z0 * sAy;
-        var z1 = -x0 * sAy + z0 * cAy;
-        var y1 = y0 * cAx - z1 * sAx;
-        var z2 = y0 * sAx + z1 * cAx;
-
-        var persp = focal / (cam + z2);
-        var px = cx + x1 * persp * span;
-        var py = cy + y1 * persp * span;
-
-        var nx = cv * cu, ny = sv, nz = cv * su;
-        var nx1 = nx * cAy + nz * sAy;
-        var nz1 = -nx * sAy + nz * cAy;
-        var ny1 = ny * cAx - nz1 * sAx;
-        var lambert = clamp(0.5 - 0.5 * (nx1 * 0.42 + ny1 * -0.78 + nz1 * -0.46), 0, 1);
-        var depth = clamp((1 - z2 / 1.5) * 0.5, 0, 1);
-        var b = clamp(0.1 + 0.72 * Math.pow(depth, 1.5) + 0.4 * lambert, 0, 1);
-
-        var gi = Math.round(b * (GLYPHS.length - 1));
-        var si = persp > 0.9 ? 2 : persp > 0.72 ? 1 : 0;
-        var ti = pt.accent ? 4 : b < 0.32 ? 0 : b < 0.55 ? 1 : b < 0.78 ? 2 : 3;
-
-        var spr = sprite(gi, si, ti);
-        var size = spr.size * (0.82 + b * 0.42);
-        ctx.globalAlpha = Math.min(1, (0.12 + 0.82 * Math.pow(b, 1.5)) * brightness);
-        ctx.drawImage(
-          atlas, spr.sx, spr.sy, cell, cell,
-          px - size / 2, py - size / 2, size, size
-        );
+      /* ── disk, back half (the shadow erases whatever is inside) ── */
+      for (i = 0; i < disk.length; i++) {
+        p = disk[i];
+        a = p.a + time * p.w;
+        sa = Math.sin(a);
+        if (sa >= 0) continue;
+        r = p.r;
+        ca = Math.cos(a);
+        var db = clamp((2.05 - r) / 1.05, 0, 1);
+        var dAlpha = (0.4 + 0.8 * Math.pow(db, 1.2)) * (0.78 + 0.22 * (0.5 - 0.5 * ca));
+        dAlpha *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + r * 6);
+        if (dAlpha < 0.04) continue;
+        var dx = cx + ca * r * R;
+        var dy = cy + sa * r * R * FLAT + p.thick * R;
+        var dti = dAlpha < 0.25 ? 0 : dAlpha < 0.5 ? 1 : dAlpha < 0.75 ? 2 : dAlpha < 0.92 ? 3 : 4;
+        plot(dti <= 1 ? p.g0 : dti <= 3 ? p.g1 : p.g2, dti, dx, dy, Math.min(1, dAlpha), 0.82 + dAlpha * 0.6);
       }
 
+      /* ── event horizon: erase everything inside, so the page bg shows ── */
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      var hole = ctx.createRadialGradient(cx, cy, R * 0.82, cx, cy, R * 1.0);
+      hole.addColorStop(0, 'rgba(0,0,0,1)');
+      hole.addColorStop(0.78, 'rgba(0,0,0,0.98)');
+      hole.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hole;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 1.01, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      /* ── bloom, then the photon ring on top of it ── */
+      var bloom = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R * 1.5);
+      bloom.addColorStop(0, hexA(tints[4], 0.16));
+      bloom.addColorStop(0.4, hexA(tints[4], 0.055));
+      bloom.addColorStop(1, hexA(tints[4], 0));
+      ctx.fillStyle = bloom;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 1.5, 0, TAU);
+      ctx.fill();
+
+      var ringCount = phone ? 170 : 300;
+      for (i = 0; i < ringCount; i++) {
+        var ra = (i / ringCount) * TAU + time * 0.06;
+        var wob = 0.8 + 0.2 * Math.sin(ra * 3 + time * 1.2);
+        var rr = R * (1.0 + 0.014 * Math.sin(ra * 5 + time));
+        var rx = cx + Math.cos(ra) * rr;
+        var ry = cy + Math.sin(ra) * rr;
+        var rti = wob > 0.88 ? 4 : 3;
+        plot((i * 7) % ALL.length, rti, rx, ry, 0.35 + 0.65 * wob, 0.8 + wob * 0.35);
+      }
+
+      /* ── front half of the disk, crossing in front of the shadow ── */
+      for (i = 0; i < disk.length; i++) {
+        p = disk[i];
+        a = p.a + time * p.w;
+        sa = Math.sin(a);
+        if (sa < 0) continue;
+        r = p.r;
+        ca = Math.cos(a);
+        var fb = clamp((2.05 - r) / 1.05, 0, 1);
+        var fAlpha = (0.42 + 0.82 * Math.pow(fb, 1.2)) * (0.8 + 0.2 * (0.5 - 0.5 * ca));
+        fAlpha *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + r * 6);
+        if (fAlpha < 0.04) continue;
+        var fx = cx + ca * r * R;
+        var fy = cy + sa * r * R * FLAT + p.thick * R;
+        var fti = fAlpha < 0.25 ? 0 : fAlpha < 0.5 ? 1 : fAlpha < 0.75 ? 2 : fAlpha < 0.92 ? 3 : 4;
+        plot(fti <= 1 ? p.g0 : fti <= 3 ? p.g1 : p.g2, fti, fx, fy, Math.min(1, fAlpha), 0.84 + fAlpha * 0.65);
+      }
+
+      /* ── click bursts ── */
       for (var bi = bursts.length - 1; bi >= 0; bi--) {
         var burst = bursts[bi];
         var alive = false;
@@ -579,14 +827,11 @@
           q.x += q.vx;
           q.y += q.vy;
           q.vx *= 0.955;
-          q.vy = q.vy * 0.955 + 0.035;
+          q.vy = q.vy * 0.955 + 0.03;
           q.life -= 0.016;
           if (q.life <= 0) continue;
           alive = true;
-          var sp1 = sprite(q.g, q.size, q.tint);
-          var sz = sp1.size * (0.7 + q.life * 0.8);
-          ctx.globalAlpha = q.life * 0.85;
-          ctx.drawImage(atlas, sp1.sx, sp1.sy, cell, cell, q.x - sz / 2, q.y - sz / 2, sz, sz);
+          plot(q.g, q.tint, q.x, q.y, q.life * 0.9, 0.7 + q.life * 0.7);
         }
         if (!alive) bursts.splice(bi, 1);
       }
@@ -599,11 +844,12 @@
       var dt = Math.min(64, now - last);
       last = now;
       time += dt / 1000;
-      pointer.x += (pointer.tx - pointer.x) * 0.06;
-      pointer.y += (pointer.ty - pointer.y) * 0.06;
-      tilt.x += ((pointer.x - 0.5) - tilt.x) * 0.05;
-      tilt.y += ((pointer.y - 0.5) - tilt.y) * 0.05;
+      pointer.x += (pointer.tx - pointer.x) * 0.05;
+      pointer.y += (pointer.ty - pointer.y) * 0.05;
+      TILT.x = pointer.x - 0.5;
+      TILT.y = pointer.y - 0.5;
       draw(now);
+      paintOrbit(now);
       raf = requestAnimationFrame(loop);
     }
 
@@ -619,36 +865,28 @@
       cancelAnimationFrame(raf);
     }
 
-    canvas.addEventListener('pointermove', function (e) {
-      var rect = canvas.getBoundingClientRect();
-      pointer.tx = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-      pointer.ty = clamp((e.clientY - rect.top) / rect.height, 0, 1);
-      pointer.inside = true;
-    });
+    window.addEventListener('pointermove', function (e) {
+      pointer.tx = clamp(e.clientX / window.innerWidth, 0, 1);
+      pointer.ty = clamp(e.clientY / window.innerHeight, 0, 1);
+    }, { passive: true });
 
-    canvas.addEventListener('pointerleave', function () {
-      pointer.tx = 0.5;
-      pointer.ty = 0.5;
-      pointer.inside = false;
-    });
-
-    canvas.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0) return;
+    var hero = $('#top');
+    hero && hero.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || (e.target.closest && e.target.closest('a, button'))) return;
       var rect = canvas.getBoundingClientRect();
       var x = e.clientX - rect.left;
       var y = e.clientY - rect.top;
       var parts = [];
-      for (var i = 0; i < 44; i++) {
-        var a = Math.random() * Math.PI * 2;
-        var sp = rand(1.4, 5.2);
+      for (var i = 0; i < 40; i++) {
+        var ang = Math.random() * TAU;
+        var sp = rand(1.2, 4.6);
         parts.push({
           x: x, y: y,
-          vx: Math.cos(a) * sp,
-          vy: Math.sin(a) * sp - 0.6,
-          life: rand(0.55, 1),
-          g: Math.floor(Math.random() * GLYPHS.length),
-          size: Math.random() < 0.4 ? 2 : 1,
-          tint: Math.random() < 0.6 ? 4 : 3,
+          vx: Math.cos(ang) * sp,
+          vy: Math.sin(ang) * sp - 0.5,
+          life: rand(0.5, 1),
+          g: (Math.random() * ALL.length) | 0,
+          tint: Math.random() < 0.6 ? 3 : 2,
         });
       }
       bursts.push({ parts: parts });
@@ -659,10 +897,13 @@
     var resizeTimer;
     window.addEventListener('resize', function () {
       window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(resize, 160);
+      resizeTimer = window.setTimeout(function () {
+        resize();
+        layoutOrbit();
+        paintOrbit(performance.now());
+      }, 150);
     });
 
-    var hero = $('#top');
     if (hero && 'IntersectionObserver' in window) {
       new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
@@ -679,14 +920,12 @@
       else if (!reduceMotion) start();
     });
 
-    // the glyph atlas bakes in the theme tints — rebuild it when the theme flips
     window.addEventListener('themechange', function () {
       buildAtlas();
       if (!running) draw(performance.now());
     });
 
     resize();
-
     if (doc.fonts && doc.fonts.ready) {
       doc.fonts.ready.then(function () {
         buildAtlas();
@@ -732,7 +971,7 @@
           });
         });
       }, { rootMargin: '-45% 0px -50% 0px' });
-      ['about', 'work', 'stack', 'contact'].forEach(function (id) {
+      ['about', 'stack', 'contact'].forEach(function (id) {
         var el = doc.getElementById(id);
         if (el) obs.observe(el);
       });
@@ -798,7 +1037,7 @@
 
     doc.addEventListener('pointerover', function (e) {
       var t = e.target;
-      var hot = t.closest && t.closest('a, button, .work-row.has-link, .mailto, .socials a');
+      var hot = t.closest && t.closest('a, button, .node');
       dot.classList.toggle('hot', !!hot);
     });
 
@@ -818,7 +1057,7 @@
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('theme', next); } catch (e) {}
     var meta = $('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', next === 'paper' ? '#f2efe5' : '#0a0b08');
+    if (meta) meta.setAttribute('content', next === 'paper' ? '#f2f2f0' : '#0a0a0a');
     window.dispatchEvent(new Event('themechange'));
     return next;
   }
@@ -829,7 +1068,7 @@
     var initial = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'paper' : 'void');
     root.setAttribute('data-theme', initial);
     var meta = $('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', initial === 'paper' ? '#f2efe5' : '#0a0b08');
+    if (meta) meta.setAttribute('content', initial === 'paper' ? '#f2f2f0' : '#0a0a0a');
 
     var btn = $('#theme-toggle');
     if (btn) btn.addEventListener('click', function () { toggleTheme(); });
@@ -892,7 +1131,7 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     6. command palette
+     12. command palette
      ───────────────────────────────────────────────────────────────────── */
   function initPalette() {
     var dlg = $('#palette');
@@ -910,23 +1149,28 @@
 
     var commands = [
       { label: { zh: '跳到 关于', en: 'Go to About' }, hint: '01', run: function () { go('#about'); } },
-      { label: { zh: '跳到 项目', en: 'Go to Work' }, hint: '02', run: function () { go('#work'); } },
-      { label: { zh: '跳到 技术栈', en: 'Go to Stack' }, hint: '03', run: function () { go('#stack'); } },
-      { label: { zh: '跳到 联系', en: 'Go to Contact' }, hint: '04', run: function () { go('#contact'); } },
+      { label: { zh: '跳到 技术栈', en: 'Go to Stack' }, hint: '02', run: function () { go('#stack'); } },
+      { label: { zh: '跳到 联系', en: 'Go to Contact' }, hint: '03', run: function () { go('#contact'); } },
       { label: { zh: '复制主邮箱', en: 'Copy email' }, hint: 'clip', run: copyEmail },
       { label: { zh: '切换主题', en: 'Toggle theme' }, hint: 'T', run: function () { toggleTheme(); } },
       { label: { zh: '切换语言', en: 'Switch language' }, hint: 'L', run: toggleLang },
-      {
-        label: { zh: '打开 GitHub', en: 'Open GitHub' }, hint: 'ext',
-        run: function () {
-          var s = (CFG.socials || []).filter(function (x) {
-            return /github/i.test(x.label && (x.label.en || x.label.zh || ''));
-          })[0];
-          window.open(s ? s.href : 'https://github.com/AAA-996', '_blank', 'noopener');
-        },
-      },
-      { label: { zh: '回到顶部', en: 'Back to top' }, hint: 'top', run: function () { go('#top'); } },
     ];
+
+    WORK.forEach(function (w, i) {
+      commands.push({
+        label: {
+          zh: '打开项目 ' + pad(i + 1) + ' · ' + pick(w.short || w.title),
+          en: 'Open project ' + pad(i + 1) + ' · ' + (w.short ? w.short.en : pick(w.title)),
+        },
+        hint: 'open',
+        run: function () { projectView.open(i); },
+      });
+    });
+
+    commands.push({
+      label: { zh: '打开 GitHub', en: 'Open GitHub' }, hint: 'ext',
+      run: function () { window.open('https://github.com/AAA-996', '_blank', 'noopener'); },
+    });
 
     var filtered = commands.slice();
     var active = 0;
@@ -954,7 +1198,7 @@
     function filter() {
       var q = input.value.trim().toLowerCase();
       filtered = commands.filter(function (c) {
-        var text = (c.label.zh + ' ' + c.label.en).toLowerCase();
+        var text = ((c.label.zh || '') + ' ' + (c.label.en || '')).toLowerCase();
         return text.indexOf(q) > -1 || c.hint.toLowerCase().indexOf(q) > -1;
       });
       active = 0;
@@ -1011,9 +1255,9 @@
 
     doc.addEventListener('keydown', function (e) {
       var mod = e.metaKey || e.ctrlKey;
-      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(doc.activeElement.tagName);
+      var tag = doc.activeElement.tagName;
+      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(tag);
       var key = e.key.toLowerCase();
-
       if (mod && key === 'k') {
         e.preventDefault();
         if (dlg.open) close();
@@ -1032,12 +1276,6 @@
   /* ─────────────────────────────────────────────────────────────────────
      wiring
      ───────────────────────────────────────────────────────────────────── */
-  function initCopyButtons() {
-    $$('[data-copy="email"]').forEach(function (btn) {
-      btn.addEventListener('click', copyEmail);
-    });
-  }
-
   function initLangSwitch() {
     var btn = $('#lang-switch');
     if (btn) btn.addEventListener('click', toggleLang);
@@ -1047,14 +1285,16 @@
     bindText();
     updateMeta();
     renderTicker();
-    renderWork();
     renderStack();
     renderSocials();
+    renderOrbit();
+    projectView.init();
     initTheme();
     initLangSwitch();
-    initCopyButtons();
     initClock();
     initField();
+    layoutOrbit();
+    paintOrbit(performance.now());
     initScroll();
     initReveal();
     initReticle();
@@ -1068,20 +1308,19 @@
     $$('.reveal').forEach(function (el) { el.classList.add('in-view'); });
   }
 
-  if (doc.readyState === 'loading') {
-    doc.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
-
   function boot() {
     try {
       init();
     } catch (err) {
-      // a broken config should degrade to a readable page, never a blank one
       console.error('[site] init failed:', err);
       revealAll();
       finishBoot();
     }
+  }
+
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
   }
 })();

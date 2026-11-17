@@ -27,14 +27,18 @@ window.CONFIG = {
   },
 
   /* ── 3. 项目 ──────────────────────────────────────────────────────────────
-     title / kind / blurb 都是 { zh, en }。
-     links:   [{ label: {zh,en}, href }]，可以放 1～3 个（主仓库 + 分支链接）
-     private: true  → 会显示一个「私有」小标，避免访客点进 404 时以为你写错了
-     status:  {zh,en} → 没有 links 时显示的替代文字
+     每个项目在首页黑洞周围有一个节点，点开是整屏覆盖的详情页。
+
+     title  详情页大标题（也是节点的长标题）
+     short  黑洞周围的小标题，越短越好，2–6 个字
+     images 图片数组：['assets/img/xxx/1.jpg', …]
+            ★ 留空就是「没有图片」——页面上不会有任何占位、留白或边框。
+            放进第一张图，详情页就自动出现图片区（自适应两列/单列）。
      ──────────────────────────────────────────────────────────────────────── */
   work: [
     {
       title: { zh: 'RoboMaster 电控学习历程', en: 'RoboMaster Electronics Log' },
+      short: { zh: '电控历程', en: 'Electronics Log' },
       year: '2025 — 2026',
       kind: { zh: '电控 · 嵌入式', en: 'ELECTRONICS · EMBEDDED' },
       blurb: {
@@ -43,6 +47,8 @@ window.CONFIG = {
       },
       tags: ['C', 'STM32', 'CAN', 'POWER'],
       private: true,
+      // ▼ 截图放这里：images: ['assets/img/robomaster/board.jpg', 'assets/img/robomaster/robot.jpg'],
+      images: [],
       links: [
         {
           label: { zh: '主仓库', en: 'REPOSITORY' },
@@ -60,6 +66,7 @@ window.CONFIG = {
     },
     {
       title: { zh: 'lnk-DMh7 · H7 主控与 DM 电机链路', en: 'lnk-DMh7 · H7 Controller & DM Motor Link' },
+      short: { zh: 'H7 电机链路', en: 'H7 Motor Link' },
       year: '2026',
       kind: { zh: '固件 · 通信', en: 'FIRMWARE · COMMS' },
       blurb: {
@@ -68,6 +75,7 @@ window.CONFIG = {
       },
       tags: ['STM32H7', 'CAN', 'MOTOR CONTROL'],
       private: true,
+      images: [],
       links: [
         {
           label: { zh: '主仓库', en: 'REPOSITORY' },
@@ -81,13 +89,15 @@ window.CONFIG = {
     },
     {
       title: { zh: '这个网站', en: 'This Site' },
+      short: { zh: '这个网站', en: 'This Site' },
       year: '2026',
       kind: { zh: '前端 · 自娱自乐', en: 'META' },
       blurb: {
-        zh: '手写、零依赖、一个 canvas。首页那圈字符其实是 3D 环形点阵的实时投影：鼠标会让它倾斜，点击会炸开。没有打包工具，静态文件直接放在 GitHub Pages 上。',
-        en: 'Hand-built, zero dependencies, one canvas. The ring on the front page is a live 3D torus of monospace glyphs — it tilts with the cursor and bursts on click. No bundler; static files on GitHub Pages.',
+        zh: '手写、零依赖、一个 canvas。首页那个黑洞是字符点阵的实时投影：吸积盘按开普勒速度旋转，背面被引力透镜弯成上方的弧，中间的黑影是事件视界。鼠标会让它倾斜，点击会炸开。',
+        en: 'Hand-built, zero dependencies, one canvas. The hole on the front page is a live projection of monospace glyphs: a Keplerian accretion disk, with the far side bent into an arc by gravitational lensing, and the shadow of the event horizon in the middle.',
       },
       tags: ['CANVAS', 'CSS', 'JAVASCRIPT'],
+      images: [],
       status: { zh: '源码即将公开', en: 'SOURCE SOON' },
     },
   ],
