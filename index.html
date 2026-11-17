@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh" data-theme="void" class="no-js">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Noah Zheng · 电控与嵌入式</title>
+  <meta name="description" content="Noah Zheng —— 本科学生，RoboMaster 电控与嵌入式。原理图、CAN 总线、电机控制，以及一个用等宽字符渲染的个人站。" />
+  <meta name="theme-color" content="#0a0b08" />
+  <meta name="color-scheme" content="dark light" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Noah Zheng · 电控与嵌入式" />
+  <meta property="og:description" content="本科学生，RoboMaster 电控与嵌入式。原理图、CAN 总线、电机控制。" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20fill='%230a0b08'/%3E%3Ctext%20x='16'%20y='21'%20font-family='monospace'%20font-size='13'%20fill='%23e8e6d9'%20text-anchor='middle'%3E%5B%5D%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <!-- ══════════════════════════════════════════════════════════
+       Boot overlay — the fake system check on first paint
+       ══════════════════════════════════════════════════════════ -->
+  <div class="boot" id="boot" aria-hidden="true">
+    <div class="boot-inner">
+      <p class="boot-brand">[&nbsp;]</p>
+      <pre class="boot-log" id="boot-log"></pre>
+      <p class="boot-hint">PRESS ANY KEY TO SKIP</p>
+    </div>
+  </div>
+
+  <div class="grain" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="progress" aria-hidden="true"><i id="progress-bar"></i></div>
+
+  <a class="skip-link" href="#main"><span lang="zh">跳到正文</span><span lang="en">Skip to content</span></a>
+
+  <!-- custom reticle (desktop only) -->
+  <div class="reticle" id="reticle" aria-hidden="true">
+    <span class="reticle-ring"></span>
+    <span class="reticle-x"></span>
+    <span class="reticle-y"></span>
+    <span class="reticle-dot"></span>
+    <span class="reticle-label" id="reticle-label">000,000</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       Top bar
+       ══════════════════════════════════════════════════════════ -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-inner">
+      <a class="wordmark" href="#top" aria-label="Back to top">
+        <span class="wordmark-mark">[&nbsp;]</span>
+        <span class="wordmark-text" data-bind="handle">@AAA-996</span>
+      </a>
+
+      <nav class="nav" aria-label="Sections">
+        <a href="#about" data-nav="about"><span>01</span><span lang="zh">关于</span><span lang="en">README</span></a>
+        <a href="#work" data-nav="work"><span>02</span><span lang="zh">项目</span><span lang="en">WORK</span></a>
+        <a href="#stack" data-nav="stack"><span>03</span><span lang="zh">技术栈</span><span lang="en">STACK</span></a>
+        <a href="#contact" data-nav="contact"><span>04</span><span lang="zh">联系</span><span lang="en">CONTACT</span></a>
+      </nav>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" id="theme-toggle" aria-label="Switch colour theme" title="Toggle theme (T)">
+          <span class="theme-dot"></span>
+        </button>
+        <button class="kbd-btn" data-palette-open aria-label="Open command palette">
+          <kbd>⌘</kbd><kbd>K</kbd>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ══════════════════════════════════════════════════════════
+         HERO — canvas ASCII torus lives here
+         ══════════════════════════════════════════════════════════ -->
+    <section class="hero" id="top" aria-label="Introduction">
+      <canvas id="field" class="field" aria-hidden="true"></canvas>
+      <div class="hero-glow" aria-hidden="true"></div>
+
+      <div class="container hero-inner">
+        <p class="eyebrow">
+          <span class="pulse" aria-hidden="true"></span>
+          <span data-bind="handle">@AAA-996</span>
+          <span class="sep">/</span>
+          <span lang="zh">本科学生 · RoboMaster 电控</span>
+          <span lang="en">UNDERGRADUATE · ROBOMASTER</span>
+        </p>
+
+        <h1 class="display">
+          <span>NOAH</span>
+          <span>ZHENG</span>
+        </h1>
+
+        <p class="kinetic">
+          <span class="kinetic-tick" aria-hidden="true">▍</span>
+          <span id="typed">在学电控。</span><span class="caret" aria-hidden="true"></span>
+        </p>
+
+        <p class="lede">
+          <span lang="zh">我叫 Noah，本科在读，在 RoboMaster 战队里做电控与嵌入式。日常在示波器、原理图和<span class="nowrap">一堆 <code>.c</code> 文件</span>之间来回——从画第一块最小系统板，到让它在一台真会撞墙的机器人上活下来。</span>
+          <span lang="en">I'm Noah, an undergraduate doing electronics and embedded work on a RoboMaster team. Most days are spent between an oscilloscope, a schematic and a pile of <code>.c</code> files — from the first minimum-system board to keeping it alive on a robot that really does hit walls.</span>
+        </p>
+
+        <div class="hero-actions">
+          <a class="btn btn-solid" href="#work">
+            <span lang="zh">看项目</span><span lang="en">VIEW WORK</span><span class="btn-arrow" aria-hidden="true">↗</span>
+          </a>
+          <button class="btn" data-copy="email">
+            <span lang="zh">复制邮箱</span><span lang="en">COPY EMAIL</span>
+          </button>
+          <button class="btn btn-quiet" data-palette-open>
+            <kbd>⌘</kbd><kbd>K</kbd><span lang="zh">命令</span><span lang="en">COMMANDS</span>
+          </button>
+        </div>
+
+        <ul class="hero-meta">
+          <li>
+            <span class="k" lang="zh">坐标</span><span class="k" lang="en">BASED</span>
+            <span lang="zh">中国 · UTC+8</span><span lang="en">China · UTC+8</span>
+          </li>
+          <li>
+            <span class="k" lang="zh">状态</span><span class="k" lang="en">MODE</span>
+            <span class="live" lang="zh">欢迎交流</span><span class="live" lang="en">open to talk</span>
+          </li>
+          <li>
+            <span class="k" lang="zh">更新</span><span class="k" lang="en">UPDATED</span>
+            <span>2026.11</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="hero-rail" aria-hidden="true">
+        <span lang="zh">向下滚动</span><span lang="en">SCROLL</span><i></i>
+      </div>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track" id="ticker-track"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         01 / ABOUT
+         ══════════════════════════════════════════════════════════ -->
+    <section class="panel" id="about" aria-labelledby="about-title">
+      <div class="container">
+        <header class="panel-head reveal">
+          <span class="panel-num">01</span>
+          <div class="panel-heading">
+            <p class="panel-label">README</p>
+            <h2 class="panel-title" id="about-title">
+              <span lang="zh">一份简短的自我介绍<span class="accent">。</span></span>
+              <span lang="en">A short introduction<span class="accent">.</span></span>
+            </h2>
+          </div>
+          <p class="panel-note">
+            <span lang="zh">更新于 2026.11</span><span lang="en">last edit · 2026.11</span>
+          </p>
+        </header>
+
+        <div class="about-grid">
+          <div class="idcard reveal">
+            <div class="idcard-bar">
+              <span></span><span></span><span></span>
+              <em>~/whoami</em>
+            </div>
+            <dl class="idcard-body">
+              <div><dt>name</dt><dd data-bind="name">NOAH ZHENG</dd></div>
+              <div>
+                <dt>role</dt>
+                <dd lang="zh">电控 · 嵌入式</dd><dd lang="en">electronics &amp; embedded</dd>
+              </div>
+              <div>
+                <dt>base</dt>
+                <dd lang="zh">中国 · UTC+8</dd><dd lang="en">China · UTC+8</dd>
+              </div>
+              <div>
+                <dt>focus</dt>
+                <dd lang="zh">RoboMaster · 电机控制</dd><dd lang="en">RoboMaster · motor control</dd>
+              </div>
+              <div><dt>stack</dt><dd>c · c++ · stm32</dd></div>
+              <div>
+                <dt>status</dt>
+                <dd class="ok" lang="zh">● 在线，欢迎交流</dd>
+                <dd class="ok" lang="en">● online, say hi</dd>
+              </div>
+            </dl>
+            <div class="idcard-foot">
+              <span>ID 0001</span>
+              <span class="bars" aria-hidden="true">▚▚▚▚▚▚</span>
+            </div>
+          </div>
+
+          <div class="about-text reveal">
+            <p class="about-lead">
+              <span lang="zh">我做的事，大多是把「电」变成「会动的机器」。</span>
+              <span lang="en">Most of what I do is turning electricity into a machine that moves.</span>
+            </p>
+            <p>
+              <span lang="zh">我的兴趣落在硬件和代码的交界处：电源怎么稳、CAN 上丢了帧怎么办、电机低速时为什么抖。这些问题不写进论文，但决定一台机器人能不能跑完一场比赛。</span>
+              <span lang="en">My interest sits where hardware meets code: how to keep a rail stable, what to do when a CAN frame goes missing, why a motor stutters at low speed. None of it is glamorous, but it decides whether a robot finishes a match.</span>
+            </p>
+            <p>
+              <span lang="zh">所以我的项目大多是「记录」：把踩过的坑、验证过的电路、终于调通的控制写成能复现的东西。做 RoboMaster 这段时间，我更像一个在实验室里记笔记的人。</span>
+              <span lang="en">So most of my projects are logs: the pitfalls, the circuits that worked, the control loops that finally ran. RoboMaster has mostly turned me into someone who takes notes in a lab.</span>
+            </p>
+            <ul class="about-list">
+              <li>
+                <span>01</span>
+                <span lang="zh">从最小系统板到整车主控的电控链路。</span>
+                <span lang="en">An electronics path from minimum-system board to full robot controller.</span>
+              </li>
+              <li>
+                <span>02</span>
+                <span lang="zh">按机器人角色（工程 / 步兵）分支撑的固件迭代。</span>
+                <span lang="en">Firmware iterated per robot role — engineer and infantry.</span>
+              </li>
+              <li>
+                <span>03</span>
+                <span lang="zh">把故障保护当成功能来写，而不是当补丁。</span>
+                <span lang="en">Writing fault protection as a feature, not a patch.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         02 / WORK  — rendered from CONFIG in assets/js/data.js
+         ══════════════════════════════════════════════════════════ -->
+    <section class="panel" id="work" aria-labelledby="work-title">
+      <div class="container">
+        <header class="panel-head reveal">
+          <span class="panel-num">02</span>
+          <div class="panel-heading">
+            <p class="panel-label"><span lang="zh">精选项目</span><span lang="en">SELECTED WORK</span></p>
+            <h2 class="panel-title" id="work-title">
+              <span lang="zh">做过的东西<span class="accent">。</span></span>
+              <span lang="en">Things I shipped<span class="accent">.</span></span>
+            </h2>
+          </div>
+          <p class="panel-note" data-work-count>03 entries</p>
+        </header>
+
+        <div class="work-list" id="work-list"></div>
+        <noscript><p class="no-js-note">Enable JavaScript to see the project list.</p></noscript>
+
+        <footer class="work-footer reveal">
+          <a class="link-arrow" href="https://github.com/AAA-996" target="_blank" rel="noreferrer noopener">
+            <span lang="zh">GitHub 上还有别的</span><span lang="en">MORE ON GITHUB</span>
+            <span aria-hidden="true">↗</span>
+          </a>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         03 / STACK
+         ══════════════════════════════════════════════════════════ -->
+    <section class="panel" id="stack" aria-labelledby="stack-title">
+      <div class="container">
+        <header class="panel-head reveal">
+          <span class="panel-num">03</span>
+          <div class="panel-heading">
+            <p class="panel-label"><span lang="zh">技术栈</span><span lang="en">STACK</span></p>
+            <h2 class="panel-title" id="stack-title">
+              <span lang="zh">手边这些东西<span class="accent">。</span></span>
+              <span lang="en">Tools of the trade<span class="accent">.</span></span>
+            </h2>
+          </div>
+          <p class="panel-note">
+            <span lang="zh">够用就好</span><span lang="en">boring choices, mostly</span>
+          </p>
+        </header>
+
+        <div class="stack-grid" id="stack-grid"></div>
+
+        <div class="stack-note reveal">
+          <p>
+            <span class="k" lang="zh">一点想法</span><span class="k" lang="en">PHILOSOPHY</span>
+            <span lang="zh">能示波器上看到的现象，就不要靠猜。代码里每一处「应该没问题」，最后都会在赛场上还给你。</span>
+            <span lang="en">If it can be seen on a scope, it should not be guessed. Every “should be fine” in the code eventually comes back at you on the field.</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════
+         04 / CONTACT
+         ══════════════════════════════════════════════════════════ -->
+    <section class="panel panel-contact" id="contact" aria-labelledby="contact-title">
+      <div class="container">
+        <header class="panel-head reveal">
+          <span class="panel-num">04</span>
+          <div class="panel-heading">
+            <p class="panel-label"><span lang="zh">联系</span><span lang="en">CONTACT</span></p>
+            <h2 class="panel-title" id="contact-title">
+              <span lang="zh">说句话<span class="accent">。</span></span>
+              <span lang="en">Say hello<span class="accent">.</span></span>
+            </h2>
+          </div>
+          <p class="panel-note">
+            <span lang="zh">一般 48 小时内回</span><span lang="en">replies within 48h</span>
+          </p>
+        </header>
+
+        <p class="contact-lede reveal">
+          <span lang="zh">邮件最快。两个邮箱都在用：Gmail 日常收，QQ 邮箱也不会漏。想聊 RoboMaster、想做项目、或者发现上面哪句写错了，都欢迎。</span>
+          <span lang="en">Email is the fastest way in. I check both: Gmail daily, QQ mail as a backup. RoboMaster, side projects, or a correction to something above — all welcome.</span>
+        </p>
+
+        <a class="mailto reveal" href="mailto:zbinhr0831@gmail.com" data-bind-href="mailto">
+          <span data-bind="email">zbinhr0831@gmail.com</span>
+          <span class="mailto-arrow" aria-hidden="true">↗</span>
+        </a>
+
+        <ul class="socials reveal" id="socials"></ul>
+
+        <p class="contact-foot reveal">
+          <span class="k" lang="zh">版权</span><span class="k" lang="en">COPYRIGHT</span>
+          © <span id="year">2026</span> <span data-bind="name">NOAH ZHENG</span> ·
+          <span lang="zh">手写代码，无框架，无追踪。</span>
+          <span lang="en">built by hand, no framework, no tracker.</span>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════════
+       Fixed status bar
+       ══════════════════════════════════════════════════════════ -->
+  <div class="statusbar">
+    <span class="sb-item sb-live"><i></i><span lang="zh">重力正常</span><span lang="en">gravity active</span></span>
+    <span class="sb-item sb-sep">│</span>
+    <span class="sb-item sb-coords" id="sb-coords">CN · UTC+8</span>
+    <span class="sb-item sb-sep sb-hide">│</span>
+    <span class="sb-item sb-hide" id="sb-glyphs">GLYPHS 1,300</span>
+    <span class="sb-spacer"></span>
+    <span class="sb-item sb-hide">SCROLL <span id="sb-scroll">0%</span></span>
+    <span class="sb-item sb-sep sb-hide">│</span>
+    <button class="sb-item lang-switch" id="lang-switch" type="button"
+            aria-label="Switch language / 切换语言">
+      <span class="lang-opt" data-lang-opt="zh">中</span>
+      <span class="lang-div">/</span>
+      <span class="lang-opt" data-lang-opt="en">EN</span>
+    </button>
+    <span class="sb-item sb-sep">│</span>
+    <span class="sb-item"><time id="clock">--:--:--</time></span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       Command palette
+       ══════════════════════════════════════════════════════════ -->
+  <dialog id="palette" class="palette" aria-label="Command palette">
+    <div class="palette-head">
+      <span class="palette-prompt">›</span>
+      <input id="palette-input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="输入命令 / type a command…" aria-label="Command" aria-controls="palette-list" />
+      <span class="palette-hint">ESC</span>
+    </div>
+    <ul class="palette-list" id="palette-list" role="listbox" aria-label="Commands"></ul>
+    <div class="palette-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>↵</kbd> run</span>
+      <span><kbd>⌘K</kbd> toggle</span>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
