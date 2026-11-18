@@ -1474,6 +1474,7 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
 .pv-body {
   width: 100%;
   max-width: 820px;
+  opacity: 0;
   /* auto margins centre short projects and collapse when the content is tall */
   margin: auto;
   padding: clamp(26px, 5vh, 54px) var(--gutter) clamp(40px, 6vh, 64px);
@@ -1507,6 +1508,10 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
     opacity: 1;
     transform: none;
   }
+}
+
+.pv-body.enter {
+  opacity: 1;
 }
 
 .pv-body.enter > * {
@@ -2334,7 +2339,8 @@ body.pv-open .stack-orbit,
 body.pv-open .statusbar {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s var(--ease);
+  /* gone before the field starts shrinking, so it never ghosts over the text */
+  transition: opacity 0.24s var(--ease);
 }
 
 .topbar,
@@ -2356,4 +2362,22 @@ body.pv-open .statusbar {
       var(--bg) 100%
     );
   }
+}
+
+
+/* ── 20. the page-change choreography ──────────────────────────────────── */
+/* the hole zooms first; the reading chrome only arrives once it shrinks back */
+@keyframes pv-chrome {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.project-view[open] .pv-bar,
+.project-view[open] .pv-foot,
+.project-view[open] .pv-shell::before {
+  animation: pv-chrome 0.6s var(--ease) 0.34s both;
 }

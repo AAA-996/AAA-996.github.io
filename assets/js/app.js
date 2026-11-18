@@ -301,7 +301,7 @@
       }).join('');
     }
 
-    function fill(i) {
+    function fill(i, enterNow) {
       if (!dlg) return;
       var w = WORK[i];
       if (!w) return;
@@ -397,37 +397,52 @@
 
       $('#pv-counter').textContent = pad(i + 1) + ' / ' + pad(WORK.length);
 
-      // replay the staged entrance on every switch
-      var body = $('.pv-body');
-      if (body) {
-        body.classList.remove('enter');
-        void body.offsetWidth;
-        body.classList.add('enter');
-      }
+      if (enterNow !== false) revealBody();
 
       var scroll = $('#pv-scroll');
       if (scroll) scroll.scrollTop = 0;
     }
 
+    // (re)start the staged entrance of the text column
+    function revealBody() {
+      var body = $('.pv-body');
+      if (!body) return;
+      body.classList.remove('enter');
+      void body.offsetWidth;
+      body.classList.add('enter');
+    }
+
+    var seq = 0;
+
     function open(i) {
       if (!dlg || !WORK.length) return;
+      var mine = ++seq;
       lastFocus = doc.activeElement;
-      fill(clamp(i, 0, WORK.length - 1));
+      fill(clamp(i, 0, WORK.length - 1), false);
       if (!dlg.open) dlg.showModal();
       doc.body.classList.add('is-locked');
       doc.body.classList.add('pv-open');
       root.classList.add('has-modal');
-      // the same hole glides to the right instead of a hard cut
-      if (heroHole) {
-        if (window.innerWidth <= 900) heroHole.setShift(0, -0.16, 0.85);
-        else heroHole.setShift(0.25, -0.07, 0.93);
-      }
+      // 1. the field blows up until it fills the screen
+      if (heroHole) heroHole.zoomTo(2.45, 420);
+
+      // 2. then it falls back into the right-hand slot while the text arrives
+      window.setTimeout(function () {
+        if (mine !== seq || !dlg.open) return;
+        if (heroHole) {
+          if (window.innerWidth <= 900) heroHole.glideTo(0, -0.16, 0.85, 900);
+          else heroHole.glideTo(0.25, -0.07, 0.93, 900);
+        }
+        revealBody();
+      }, 380);
+
       var closeBtn = $('#pv-close');
       if (closeBtn) closeBtn.focus({ preventScroll: true });
     }
 
     function close() {
       if (!dlg || !dlg.open) return;
+      seq++;
       dlg.close();
     }
 
@@ -463,7 +478,7 @@
         doc.body.classList.remove('pv-open');
         root.classList.remove('has-modal');
         // and glides back to the middle
-        if (heroHole) heroHole.setShift(0, 0, 1);
+        if (heroHole) heroHole.glideTo(0, 0, 1, 700);
         if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
       });
 
@@ -719,6 +734,24 @@
     var tiltY = 0;
     // the hole itself can slide (home → project page), so the move is continuous
     var shift = { x: 0, y: 0, s: 1, tx: 0, ty: 0, ts: 1 };
+    var tween = null;
+    var sizeBoost = 1;
+
+    function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function tweenTo(target, ms, ease) {
+      tween = {
+        x0: shift.x, y0: shift.y, s0: shift.s,
+        x1: target.x == null ? shift.x : target.x,
+        y1: target.y == null ? shift.y : target.y,
+        s1: target.s == null ? shift.s : target.s,
+        t0: time,
+        dur: Math.max(0.05, ms / 1000),
+        ease: ease || easeInOut,
+      };
+    }
 
     function hexA(hex, a) {
       var s = String(hex).replace('#', '').trim();
@@ -846,7 +879,7 @@
     function plot(gi, ti, x, y, alpha, scale) {
       if (gi < 0 || alpha <= 0.004) return;
       var sp = sprite(gi, ti);
-      var size = sp.size * scale;
+      var size = sp.size * scale * sizeBoost;
       ctx.globalAlpha = alpha;
       ctx.drawImage(atlas, sp.sx, sp.sy, cell, cell, x - size / 2, y - size / 2, size, size);
     }
@@ -868,6 +901,7 @@
       if (!atlas) return;
       ctx.clearRect(0, 0, w, h);
 
+      sizeBoost = 1 + (shift.s - 1) * 0.5;
       var g = place(w, h);
       var R = g.R * grow * shift.s;
       var cx = g.cx + shift.x;
@@ -1038,11 +1072,24 @@
       if (intro < 1) intro = Math.min(1, intro + s / 1.4);
       if (grow < 1) grow = Math.min(1, grow + s * 0.75);
 
-      // ease towards the requested hole position
-      var k = Math.min(1, dt / 150);
-      shift.x += (shift.tx - shift.x) * k;
-      shift.y += (shift.ty - shift.y) * k;
-      shift.s += (shift.ts - shift.s) * k;
+      if (tween) {
+        var p = Math.min(1, (time - tween.t0) / tween.dur);
+        var e = tween.ease(p);
+        shift.x = lerp(tween.x0, tween.x1, e);
+        shift.y = lerp(tween.y0, tween.y1, e);
+        shift.s = lerp(tween.s0, tween.s1, e);
+        if (p >= 1) {
+          shift.tx = tween.x1;
+          shift.ty = tween.y1;
+          shift.ts = tween.s1;
+          tween = null;
+        }
+      } else {
+        var k = Math.min(1, dt / 150);
+        shift.x += (shift.tx - shift.x) * k;
+        shift.y += (shift.ty - shift.y) * k;
+        shift.s += (shift.ts - shift.s) * k;
+      }
 
       for (var si = 0; si < stars.length; si++) {
         stars[si].a += stars[si].spin * s;
@@ -1106,8 +1153,9 @@
           draw();
         }
       },
-      // move the hole to a new place without cutting: dx/dy are fractions of the viewport
+      // jump straight to a target (no tween) — used when closing / reduced motion
       setShift: function (dx, dy, scale) {
+        tween = null;
         shift.tx = (dx || 0) * w;
         shift.ty = (dy || 0) * h;
         shift.ts = scale == null ? 1 : scale;
@@ -1117,6 +1165,31 @@
           shift.s = shift.ts;
           draw();
         }
+      },
+      // phase A of the page change: blow the whole field up
+      zoomTo: function (scale, ms) {
+        if (reduceMotion) {
+          shift.s = scale;
+          shift.ts = scale;
+          draw();
+          return;
+        }
+        tweenTo({ s: scale }, ms, easeOut);
+      },
+      // phase B: shrink back into the right-hand slot while the text arrives
+      glideTo: function (dx, dy, scale, ms) {
+        var target = { x: (dx || 0) * w, y: (dy || 0) * h, s: scale == null ? 1 : scale };
+        shift.tx = target.x;
+        shift.ty = target.y;
+        shift.ts = target.s;
+        if (reduceMotion) {
+          shift.x = target.x;
+          shift.y = target.y;
+          shift.s = target.s;
+          draw();
+          return;
+        }
+        tweenTo(target, ms, easeInOut);
       },
       snapShift: function () {
         shift.x = shift.tx;
