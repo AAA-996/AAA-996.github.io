@@ -687,6 +687,7 @@
     var inner = [];
     var stars = [];
     var page = null;
+    var bgCol = '#0a0a0a';
     var bursts = [];
     var time = 0;
     var raf = 0;
@@ -849,6 +850,15 @@
 
     // the whole background is a star field orbiting the hole
     // the book laid out as a full-page grid — this is the "universe" the hole sits in
+    function readBg() {
+      try {
+        var v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+        if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) bgCol = v;
+      } catch (err) {
+        /* keep the default */
+      }
+    }
+
     function buildPage() {
       if (!GLYPHS.length) return;
       page = doc.createElement('canvas');
@@ -899,6 +909,7 @@
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildAtlas();
+      readBg();
       buildPage();
       if (!parts.length) makeParts(count);
       if (starsN && !stars.length) makeStars(starsN);
@@ -957,12 +968,25 @@
         var bandH = h / bands;
         var srcH = page.height / bands;
         for (var bi = 0; bi < bands; bi++) {
+          // every row of the page streams at its own speed, so the text is always
+          // crawling — a slow current rather than a still sheet
           var wave = 0.5 + 0.5 * Math.sin(time * 1.15 + bi * 0.42);
-          ctx.globalAlpha = pBase * (0.55 + 0.5 * wave);
-          var drift = Math.sin(time * 0.7 + bi * 0.16) * 1.6;
-          ctx.drawImage(page, 0, bi * srcH, page.width, srcH, drift, bi * bandH, w, bandH + 0.6);
+          ctx.globalAlpha = pBase * (0.5 + 0.55 * wave);
+          var speed = 4 + (bi % 9) * 1.1 + (bi % 3) * 0.7;
+          var off = ((time * speed) % w + w) % w;
+          var bob = Math.sin(time * 0.55 + bi * 0.31) * 1.4;
+          ctx.drawImage(page, 0, bi * srcH, page.width, srcH, off - w, bi * bandH + bob, w, bandH + 0.6);
+          ctx.drawImage(page, 0, bi * srcH, page.width, srcH, off, bi * bandH + bob, w, bandH + 0.6);
         }
         ctx.globalAlpha = 1;
+        // the rows wrap at the edges; fade them out so the seam never shows
+        var edge = ctx.createLinearGradient(0, 0, w, 0);
+        edge.addColorStop(0, hexA(bgCol, 0.95));
+        edge.addColorStop(0.14, hexA(bgCol, 0));
+        edge.addColorStop(0.86, hexA(bgCol, 0));
+        edge.addColorStop(1, hexA(bgCol, 0.95));
+        ctx.fillStyle = edge;
+        ctx.fillRect(0, 0, w, h);
       }
 
       var glow = ctx.createRadialGradient(cx, cy, Rh * 0.2, cx, cy, Rh * 2.5);
@@ -1402,6 +1426,7 @@
         if (!running) draw();
       },
       themeChanged: function () {
+        readBg();
         buildAtlas();
         buildPage();
         if (!running) draw();
