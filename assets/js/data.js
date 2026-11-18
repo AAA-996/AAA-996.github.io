@@ -94,50 +94,6 @@ window.CONFIG = {
     },
   ],
 
-  /* ── 4. 技术栈 ────────────────────────────────────────────────────────────
-     items 可以是 { zh, en }，也可以直接写一个不需要翻译的字符串（如 'Git'）
-     ──────────────────────────────────────────────────────────────────────── */
-  stack: [
-    {
-      group: { zh: '语言', en: 'LANGUAGES' },
-      items: ['C', 'C++', 'Python', 'Bash', { zh: '汇编', en: 'Assembly' }],
-    },
-    {
-      group: { zh: '嵌入式', en: 'EMBEDDED' },
-      items: ['STM32 F4 / H7', 'HAL / LL', 'FreeRTOS', 'CAN', 'UART / SPI / I2C', 'PWM'],
-    },
-    {
-      group: { zh: '电路', en: 'ELECTRONICS' },
-      items: [
-        { zh: '原理图与 PCB', en: 'Schematic & PCB' },
-        { zh: '电源管理', en: 'Power rails' },
-        { zh: '电机驱动', en: 'Motor drivers' },
-        { zh: '示波器', en: 'Oscilloscope' },
-        { zh: '逻辑分析仪', en: 'Logic analyser' },
-      ],
-    },
-    {
-      group: { zh: '工具', en: 'TOOLS' },
-      items: ['Git', 'CMake', 'Keil', 'STM32CubeMX', 'VS Code', 'Linux'],
-    },
-    {
-      group: { zh: '在学', en: 'LEARNING' },
-      items: [
-        { zh: '控制理论', en: 'Control theory' },
-        { zh: 'RTOS 调度', en: 'RTOS scheduling' },
-        { zh: '信号完整性', en: 'Signal integrity' },
-      ],
-    },
-    {
-      group: { zh: '动手', en: 'HANDS-ON' },
-      items: [
-        { zh: '焊接', en: 'Soldering' },
-        { zh: '3D 打印', en: '3D printing' },
-        { zh: '线束制作', en: 'Wiring harness' },
-      ],
-    },
-  ],
-
   /* ── 5. 联系方式 ────────────────────────────────────────────────────────── */
   socials: [
     { label: { zh: 'GitHub', en: 'GitHub' }, handle: '@AAA-996', href: 'https://github.com/AAA-996' },

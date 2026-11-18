@@ -184,6 +184,7 @@
     var h = window.innerHeight;
     var isPhone = w <= 780;
 
+    // phones keep the links as a readable list under the hole
     orbitState.active = !isPhone;
     if (isPhone) return;
 
@@ -196,75 +197,28 @@
       cy = h * 0.57;
     }
 
-    var rx = Math.max(R * 2.55, w * 0.4);
-    var ry = Math.min(h * 0.29, 310);
-
     orbitState.cx = w / 2;
     orbitState.cy = cy;
     orbitState.ox = 0;
-    // slots sit at the centre of the stage; this shifts the ring down to the hole
+    // slots sit at 50%/50% of the stage: this drops the stack onto the hole
     orbitState.oy = cy - h / 2;
-    orbitState.rx = rx;
-    orbitState.ry = ry;
     orbitState.R = R;
+    orbitState.gap = Math.max(34, R * 0.22);
   }
 
   var TILT = { x: 0, y: 0 };
 
+  // the links live inside the shadow, stacked on the hole's centre
   function paintOrbit(t) {
     if (!orbitState.active) return;
-    var base = [-Math.PI, 0, Math.PI / 2]; // left, right, bottom
-    for (var i = 0; i < orbitState.slots.length; i++) {
-      var a = base[i % base.length];
-      if (i >= base.length) a = base[i % base.length] + (i * TAU) / orbitState.slots.length;
-      // slow breathing drift so the ring never looks frozen
-      var drift = Math.sin(t * 0.00022 + i * 2.1) * 0.05;
-      var ang = a + drift;
-      // slots live at 50%/50% of the stage, so offsets are relative to it
-      var x = orbitState.ox + Math.cos(ang) * orbitState.rx;
-      var y = orbitState.oy + Math.sin(ang) * orbitState.ry;
-      // parallax
-      x += TILT.x * 14 * (i % 2 ? 1 : -1);
-      y += TILT.y * 10;
+    var n = orbitState.slots.length;
+    var gap = orbitState.gap || 34;
+    for (var i = 0; i < n; i++) {
+      var x = orbitState.ox + TILT.x * 5;
+      var y = orbitState.oy + (i - (n - 1) / 2) * gap + TILT.y * 4;
       orbitState.slots[i].style.transform =
         'translate(-50%, -50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
     }
-
-    // the tech stack keeps turning around the hole, in very small type
-    if (stackWords.length) {
-      var turn = t * 0.000055;
-      var srx = (orbitState.R || 200) * 2.05;
-      var sry = (orbitState.R || 200) * 1.28;
-      for (var k = 0; k < stackWords.length; k++) {
-        var sa = turn + (k / stackWords.length) * TAU;
-        var sx = orbitState.ox + Math.cos(sa) * srx;
-        var sy = orbitState.oy + Math.sin(sa) * sry;
-        var depth = (Math.sin(sa) + 1) / 2; // 0 = behind the hole, 1 = in front
-        stackWords[k].style.transform =
-          'translate(-50%, -50%) translate(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px)';
-        stackWords[k].style.opacity = (0.22 + depth * 0.46).toFixed(2);
-        stackWords[k].style.zIndex = depth > 0.5 ? '2' : '1';
-      }
-    }
-  }
-
-  var stackWords = [];
-
-  function initStackOrbit() {
-    var box = $('#stack-orbit');
-    if (!box || !CFG.stack) return;
-    var list = [];
-    CFG.stack.forEach(function (g) {
-      (g.items || []).slice(0, 2).forEach(function (it) {
-        var t = typeof it === 'string' ? it : it.zh || it.en || '';
-        if (t) list.push(t);
-      });
-    });
-    list = list.slice(0, 18);
-    box.innerHTML = list
-      .map(function (w) { return '<span class="stack-word">' + esc(w) + '</span>'; })
-      .join('');
-    stackWords = $$('.stack-word', box);
   }
 
   /* ─────────────────────────────────────────────────────────────────────
@@ -728,7 +682,7 @@
     var fall = o.fall == null ? 1 : o.fall;
     var FONT = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
     var SIZES = [9, 12, 15];
-    var FLAT = 0.34;
+    var FLAT = clamp(0.34 + tiltSpin, 0.14, 0.55);
 
     var w = 1;
     var h = 1;
@@ -759,6 +713,14 @@
     var collapse = 0;
     var ctween = null;
     var alphaMul = 1;
+    // pointer interaction: hover wakes the hole up, dragging spins it in 3D
+    var hover = 0;
+    var hoverT = 0;
+    var spin = 0;
+    var spinV = 0;
+    var tiltSpin = 0;
+    var tiltV = 0;
+    var dragging = false;
 
     function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
     function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
@@ -969,8 +931,16 @@
       var cy = g.cy + shift.y;
 
       if (page) {
-        ctx.globalAlpha = (o.pageAlpha == null ? 0.4 : o.pageAlpha) * (1 - collapse) * ie * grow;
-        ctx.drawImage(page, 0, 0, w, h);
+        var pBase = (o.pageAlpha == null ? 0.4 : o.pageAlpha) * (1 - collapse) * ie * grow;
+        var bands = 40;
+        var bandH = h / bands;
+        var srcH = page.height / bands;
+        for (var bi = 0; bi < bands; bi++) {
+          var wave = 0.5 + 0.5 * Math.sin(time * 1.15 + bi * 0.42);
+          ctx.globalAlpha = pBase * (0.55 + 0.5 * wave);
+          var drift = Math.sin(time * 0.7 + bi * 0.16) * 1.6;
+          ctx.drawImage(page, 0, bi * srcH, page.width, srcH, drift, bi * bandH, w, bandH + 0.6);
+        }
         ctx.globalAlpha = 1;
       }
 
@@ -1013,8 +983,8 @@
         // collapse 1 → every particle sits exactly on the inner edge
         p.rr = 1 + (p.r - 1) * (1 - collapse) + (1 - ie) * p.spread * (1 - collapse);
         var swirl = collapse * 2.8 / (0.35 + p.rr);
-        p.ca = Math.cos(p.a + swirl);
-        p.sa = Math.sin(p.a + swirl);
+        p.ca = Math.cos(p.a + swirl + spin);
+        p.sa = Math.sin(p.a + swirl + spin);
         // cheap perspective: the near half of the disk is a touch larger
         p.persp = 1 + 0.16 * p.sa + tiltY * 0.05;
       }
@@ -1039,7 +1009,7 @@
         var db = clamp((2.05 - p.rr) / 1.05, 0, 1);
         var dA = (0.2 + 0.9 * Math.pow(db, 1.4)) * (0.78 + 0.22 * (0.5 - 0.5 * p.ca));
         dA *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + p.rr * 6);
-        dA *= ie * grow * dimBase;
+        dA *= ie * grow * dimBase * (1 + Math.abs(tiltSpin) * 2.4);
         if (dA < 0.04) continue;
         var dti = dA < 0.25 ? 0 : dA < 0.5 ? 1 : dA < 0.75 ? 2 : dA < 0.92 ? 3 : 4;
         plot(p.gi, dti, cx + p.ca * p.rr * R * p.persp, cy + p.sa * p.rr * R * FLAT * p.persp + p.thick * R,
@@ -1087,7 +1057,7 @@
       var ringCount = w <= 780 ? 70 : 104;
       var ringBase = Math.floor(time * 1.6) % HOLE_TEXT.length;
       for (i = 0; i < ringCount; i++) {
-        var ra = (i / ringCount) * TAU + time * 0.05;
+        var ra = (i / ringCount) * TAU + time * (0.05 + hover * 0.05) + spin;
         // the bottom half mirrors the top half, so it reads left-to-right too
         var flip = Math.sin(ra) > 0 ? ringCount - i : i;
         var ch = HOLE_TEXT.charAt((ringBase + flip) % HOLE_TEXT.length);
@@ -1098,7 +1068,7 @@
         plot(gi, wob > 0.88 ? 4 : 3,
           cx + Math.cos(ra) * rr,
           cy + Math.sin(ra) * rr,
-          (0.35 + 0.65 * wob) * ie * grow * dimBase,
+          (0.35 + 0.65 * wob) * ie * grow * dimBase * (1 + hover * 0.55),
           0.8 + wob * 0.35);
       }
 
@@ -1122,7 +1092,7 @@
         var fb = clamp((2.05 - p.rr) / 1.05, 0, 1);
         var fA = (0.22 + 0.92 * Math.pow(fb, 1.4)) * (0.8 + 0.2 * (0.5 - 0.5 * p.ca));
         fA *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + p.rr * 6);
-        fA *= ie * grow * dimBase;
+        fA *= ie * grow * dimBase * (1 + Math.abs(tiltSpin) * 2.4);
         if (fA < 0.04) continue;
         var fti = fA < 0.25 ? 0 : fA < 0.5 ? 1 : fA < 0.75 ? 2 : fA < 0.92 ? 3 : 4;
         plot(p.gi, fti, cx + p.ca * p.rr * R * p.persp, cy + p.sa * p.rr * R * FLAT * p.persp + p.thick * R,
@@ -1163,6 +1133,16 @@
           assign(p);
         }
       }
+      hover += (hoverT - hover) * Math.min(1, s * 7);
+
+      if (!dragging) {
+        spin += spinV * s;
+        spinV *= Math.pow(0.9, s * 60);
+        tiltSpin += tiltV * s;
+        tiltV *= Math.pow(0.85, s * 60);
+        tiltSpin += (0 - tiltSpin) * Math.min(1, s * 1.4);
+      }
+
       if (intro < 1) intro = Math.min(1, intro + s / 1.4);
       if (grow < 1) grow = Math.min(1, grow + s * 0.75);
 
@@ -1300,6 +1280,36 @@
         shift.y = shift.ty;
         shift.s = shift.ts;
       },
+      hit: function (px, py) {
+        var g = place(w, h);
+        var cx = g.cx + shift.x;
+        var cy = g.cy + shift.y;
+        var R = g.R * grow * shift.s;
+        var ddx = px - cx;
+        var ddy = py - cy;
+        return Math.sqrt(ddx * ddx + ddy * ddy) < R * 2.1;
+      },
+      setHover: function (on) {
+        hoverT = on ? 1 : 0;
+      },
+      beginDrag: function () {
+        dragging = true;
+        spinV = 0;
+        tiltV = 0;
+      },
+      dragBy: function (dx, dy) {
+        if (!dragging) return;
+        spin += dx * 0.006;
+        spinV = dx * 0.06;
+        tiltSpin = clamp(tiltSpin + dy * 0.0018, -0.12, 0.12);
+        tiltV = dy * 0.06;
+      },
+      endDrag: function () {
+        dragging = false;
+      },
+      isDragging: function () {
+        return dragging;
+      },
       setPointer: function (x, y) {
         pointer.tx = clamp(x, 0, 1);
         pointer.ty = clamp(y, 0, 1);
@@ -1356,11 +1366,40 @@
     }, { passive: true });
 
     var hero = $('#top');
+    var dragAt = null;
+
     if (hero) {
       hero.addEventListener('pointerdown', function (e) {
         if (e.button !== 0 || (e.target.closest && e.target.closest('a, button'))) return;
+        // grab the hole itself: press and drag to spin it
+        if (heroHole.hit(e.clientX, e.clientY)) {
+          heroHole.beginDrag();
+          dragAt = { x: e.clientX, y: e.clientY };
+          return;
+        }
         var rect = canvas.getBoundingClientRect();
         heroHole.burst(e.clientX - rect.left, e.clientY - rect.top);
+      });
+
+      hero.addEventListener('pointermove', function (e) {
+        heroHole.setHover(heroHole.hit(e.clientX, e.clientY));
+        if (!dragAt) return;
+        heroHole.dragBy(e.clientX - dragAt.x, e.clientY - dragAt.y);
+        dragAt = { x: e.clientX, y: e.clientY };
+      });
+
+      hero.addEventListener('pointerleave', function () {
+        heroHole.setHover(false);
+        if (dragAt) {
+          heroHole.endDrag();
+          dragAt = null;
+        }
+      });
+
+      window.addEventListener('pointerup', function () {
+        if (!dragAt) return;
+        heroHole.endDrag();
+        dragAt = null;
       });
     }
 
@@ -1753,7 +1792,6 @@
     renderStack();
     renderSocials();
     renderOrbit();
-    initStackOrbit();
     projectView.init();
     initTheme();
     initLangSwitch();

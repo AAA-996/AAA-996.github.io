@@ -754,69 +754,72 @@ kbd {
 
 .node {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  width: clamp(158px, 14.5vw, 214px);
-  padding: 12px 15px 13px;
-  border: 1px solid var(--line);
-  background: var(--node-bg);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  color: var(--ink-2);
-  text-align: left;
-  transition: background-color 0.35s var(--ease), border-color 0.35s var(--ease),
-    color 0.35s var(--ease), transform 0.4s var(--ease);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: clamp(13px, 1.15vw, 15.5px);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: color 0.3s var(--ease), letter-spacing 0.4s var(--ease);
+}
+
+.node::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease);
 }
 
 .node-idx {
-  display: inline-block;
-  font-size: 9px;
+  font-size: 8.5px;
   letter-spacing: 0.2em;
   color: var(--muted);
+  transform: translateY(-2px);
 }
 
 .node-title {
-  margin-top: 6px;
-  font-size: 12.5px;
-  line-height: 1.4;
-  letter-spacing: 0.01em;
-  color: var(--ink);
+  font-size: inherit;
+  color: inherit;
 }
 
 .node-kind {
-  margin-top: 8px;
-  font-size: 8.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--muted);
+  display: none;
 }
 
 .node-arrow {
-  position: absolute;
-  top: 11px;
-  right: 12px;
   font-size: 10px;
   color: var(--muted);
-  transition: transform 0.35s var(--ease);
+  transition: transform 0.35s var(--ease), color 0.3s var(--ease);
 }
 
 .node:hover,
 .node:focus-visible {
-  background: var(--ink);
-  border-color: var(--ink);
+  color: #ffffff;
+  letter-spacing: 0.12em;
 }
 
-.node:hover .node-idx,
-.node:hover .node-title,
-.node:hover .node-kind,
-.node:hover .node-arrow {
-  color: var(--bg);
+.node:hover::after,
+.node:focus-visible::after {
+  transform: scaleX(1);
 }
 
 .node:hover .node-arrow {
   transform: translate(2px, -2px);
+  color: #ffffff;
+}
+
+.node:hover .node-idx {
+  color: var(--ink-2);
 }
 
 .node:active {
@@ -2231,27 +2234,7 @@ html.ready .orbit-slot .node {
   }
 }
 
-/* ── 18. stack ring + sub-project sections (v3) ────────────────────────── */
-.stack-orbit {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.stack-word {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  white-space: nowrap;
-  will-change: transform, opacity;
-  transition: opacity 0.2s linear;
-}
-
+/* ── 18. mail link + sub-project sections (v3) ─────────────────────────── */
 .mail-link {
   font-size: 10px;
   letter-spacing: 0.14em;
@@ -2328,10 +2311,6 @@ html.ready .orbit-slot .node {
 }
 
 @media (max-width: 900px) {
-  .stack-orbit {
-    display: none;
-  }
-
   .mail-link {
     display: none;
   }
@@ -2341,7 +2320,6 @@ html.ready .orbit-slot .node {
 body.pv-open .topbar,
 body.pv-open .hero-caption,
 body.pv-open .orbit,
-body.pv-open .stack-orbit,
 body.pv-open .statusbar {
   opacity: 0;
   pointer-events: none;
@@ -2352,7 +2330,6 @@ body.pv-open .statusbar {
 .topbar,
 .hero-caption,
 .orbit,
-.stack-orbit,
 .statusbar {
   transition: opacity 0.4s var(--ease);
 }
