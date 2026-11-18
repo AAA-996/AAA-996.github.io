@@ -192,6 +192,12 @@
                 <span lang="en">Writing fault protection as a feature, not a patch.</span>
               </li>
             </ul>
+
+            <p class="text-credit">
+              <span class="k">TEXT</span>
+              <span lang="zh">首页黑洞里的每一个字符，都取自《查拉图斯特拉如是说》序言——Thomas Common 英译，公有领域。<a href="https://www.gutenberg.org/ebooks/1998" target="_blank" rel="noreferrer noopener">原文 ↗</a></span>
+              <span lang="en">Every character in the hole is taken from the Prologue of <em>Thus Spake Zarathustra</em>, translated by Thomas Common. <a href="https://www.gutenberg.org/ebooks/1998" target="_blank" rel="noreferrer noopener">Source ↗</a></span>
+            </p>
           </div>
         </div>
       </div>
@@ -273,6 +279,7 @@
        Project overlay — replaces the view instead of scrolling
        ══════════════════════════════════════════════════════════ -->
   <dialog id="project-view" class="project-view" aria-labelledby="pv-title">
+    <canvas id="pv-field" class="pv-field" aria-hidden="true"></canvas>
     <div class="pv-shell">
       <header class="pv-bar">
         <span class="pv-crumb">
@@ -360,6 +367,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="assets/js/text.js"></script>
   <script src="assets/js/data.js"></script>
   <script src="assets/js/app.js"></script>
 </body>

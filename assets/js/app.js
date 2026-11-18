@@ -232,6 +232,46 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────
+     faint glyph drift behind the project overlay (keeps the page alive
+     without fighting the text)
+     ───────────────────────────────────────────────────────────────────── */
+  /* the same hole, smaller, on the right of a project page */
+  var pvField = (function () {
+    var hole = null;
+    return {
+      init: function () {
+        hole = createHole($('#pv-field'), {
+          count: window.innerWidth <= 780 ? 420 : 900,
+          stars: 0,
+          place: function (w, h) {
+            if (w <= 780) return { cx: w * 0.5, cy: h * 0.19, R: Math.min(w * 0.3, h * 0.11) };
+            return { cx: w * 0.75, cy: h * 0.5, R: Math.min(w * 0.155, h * 0.235) };
+          },
+        });
+      },
+      start: function () {
+        if (!hole) return;
+        hole.resize();
+        hole.growIn();
+        hole.start();
+      },
+      stop: function () {
+        if (hole) hole.stop();
+      },
+      setPointer: function (x, y) {
+        if (hole) hole.setPointer(x, y);
+      },
+    };
+  })();
+
+  function syncModal() {
+    var pv = $('#project-view');
+    var pal = $('#palette');
+    var any = (pv && pv.open) || (pal && pal.open);
+    root.classList.toggle('has-modal', !!any);
+  }
+
+  /* ─────────────────────────────────────────────────────────────────────
      3. project overlay
      ───────────────────────────────────────────────────────────────────── */
   var projectView = (function () {
@@ -261,7 +301,6 @@
       current = i;
 
       $('#pv-idx').textContent = pad(i + 1);
-      dlg.setAttribute('data-idx', pad(i + 1));
       $('#pv-slug').textContent = pick(w.title);
       $('#pv-meta').innerHTML =
         (w.year ? '<span>' + esc(w.year) + '</span>' : '') +
@@ -311,6 +350,15 @@
         : '';
 
       $('#pv-counter').textContent = pad(i + 1) + ' / ' + pad(WORK.length);
+
+      // replay the staged entrance on every switch
+      var body = $('.pv-body');
+      if (body) {
+        body.classList.remove('enter');
+        void body.offsetWidth;
+        body.classList.add('enter');
+      }
+
       var scroll = $('#pv-scroll');
       if (scroll) scroll.scrollTop = 0;
     }
@@ -321,9 +369,10 @@
       fill(clamp(i, 0, WORK.length - 1));
       if (!dlg.open) dlg.showModal();
       doc.body.classList.add('is-locked');
-      var close = $('#pv-close');
-      if (close) close.focus({ preventScroll: true });
-      projectView.lastIndex = i;
+      root.classList.add('has-modal');
+      pvField.start();
+      var closeBtn = $('#pv-close');
+      if (closeBtn) closeBtn.focus({ preventScroll: true });
     }
 
     function close() {
@@ -360,8 +409,17 @@
 
       dlg.addEventListener('close', function () {
         doc.body.classList.remove('is-locked');
+        root.classList.remove('has-modal');
+        pvField.stop();
+        // back to the front page: everything falls in again
+        if (heroHole) heroHole.replay();
         if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
       });
+
+      // the hole on the right leans with the pointer
+      dlg.addEventListener('pointermove', function (e) {
+        pvField.setPointer(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+      }, { passive: true });
 
       doc.addEventListener('keydown', function (e) {
         if (!dlg.open) return;
@@ -546,43 +604,65 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────────
-     5. ASCII black hole
+     5. the hole — built from the Zarathustra text, always collapsing inward
      ───────────────────────────────────────────────────────────────────── */
-  function initField() {
-    var canvas = $('#field');
-    if (!canvas) return;
+  var HOLE_TEXT = (window.HOLE_TEXT && window.HOLE_TEXT.body) ||
+    'MAN IS A ROPE STRETCHED BETWEEN THE ANIMAL AND THE SUPERMAN.';
+  var GLYPHS = [];
+  var GIDX = {};
+  (function () {
+    for (var i = 0; i < HOLE_TEXT.length; i++) {
+      var c = HOLE_TEXT.charAt(i);
+      if (c === ' ' || GIDX[c] != null) continue;
+      GIDX[c] = GLYPHS.length;
+      GLYPHS.push(c);
+    }
+  })();
+
+  var heroHole = null;
+
+  function heroPlace(w, h) {
+    if (w <= 780) return { cx: w / 2, cy: h * 0.42, R: Math.min(w * 0.3, h * 0.15) };
+    if (w < 1100) return { cx: w / 2, cy: h * 0.56, R: Math.min(w * 0.155, h * 0.2) };
+    return { cx: w / 2, cy: h * 0.57, R: Math.min(w * 0.155, h * 0.235) };
+  }
+
+  function createHole(canvas, opts) {
+    if (!canvas) return null;
     var ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) return null;
 
+    var o = opts || {};
+    var count = o.count || 1600;
+    var starsN = o.stars || 0;
+    var place = o.place || function (w, h) {
+      return { cx: w / 2, cy: h / 2, R: Math.min(w, h) * 0.2 };
+    };
+    var dimBase = o.dim || 1;
+    var fall = o.fall == null ? 1 : o.fall;
     var FONT = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
-    // one pool, three brightness tiers — letters and digits, not just operators
-    var ALL = [
-      '.', '·', ':', ';', ',', '`', "'",
-      '-', '~', '=', '+', '*', 'x', 'o', 'c', 's', 'z', '/', '\\', '|',
-      '#', '%', '&', '@', '$', '0', '8', 'W', 'M', 'N', 'Q', 'Z', 'k',
-    ];
-    var TIER = [
-      [0, 1, 2, 3, 4, 5, 6],
-      [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-      [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32],
-    ];
     var SIZES = [9, 12, 15];
+    var FLAT = 0.34;
 
+    var w = 1;
+    var h = 1;
     var dpr = 1;
-    var w = 0;
-    var h = 0;
     var cell = 0;
     var atlas = null;
-    var tints = [];
+    var tints = ['#333333', '#666666', '#999999', '#cccccc', '#ffffff'];
+    var parts = [];
+    var stars = [];
+    var bursts = [];
+    var time = 0;
     var raf = 0;
     var running = false;
     var last = 0;
-    var time = 0;
-    var disk = [];
-    var stars = [];
-    var bursts = [];
+    var intro = 1;
+    var grow = 1;
+    var cursor = 0;
     var pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
-    var geo = { cx: 0, cy: 0, R: 100 };
+    var tiltX = 0;
+    var tiltY = 0;
 
     function hexA(hex, a) {
       var s = String(hex).replace('#', '').trim();
@@ -602,7 +682,7 @@
     function buildAtlas() {
       readTints();
       cell = Math.ceil(17 * dpr);
-      var cols = ALL.length;
+      var cols = GLYPHS.length;
       var rows = SIZES.length * tints.length;
       atlas = doc.createElement('canvas');
       atlas.width = cell * cols;
@@ -615,46 +695,53 @@
           a.font = '500 ' + SIZES[si] * dpr + 'px ' + FONT;
           a.fillStyle = tints[ti];
           for (var gi = 0; gi < cols; gi++) {
-            a.fillText(ALL[gi], gi * cell + cell / 2, (ti * SIZES.length + si) * cell + cell / 2);
+            a.fillText(GLYPHS[gi], gi * cell + cell / 2, (ti * SIZES.length + si) * cell + cell / 2);
           }
         }
       }
     }
 
-    function makeDisk(n) {
-      var out = [];
+    // each particle carries one character of the book; the cursor walks forward,
+    // so the field is always spelling a window of the text
+    function takeChar() {
+      var c = HOLE_TEXT.charAt(cursor % HOLE_TEXT.length);
+      cursor++;
+      return c;
+    }
+
+    function assign(p) {
+      p.ch = takeChar();
+      p.gi = GIDX[p.ch] != null ? GIDX[p.ch] : -1;
+    }
+
+    function makeParts(n) {
+      parts = [];
       for (var i = 0; i < n; i++) {
-        // denser toward the inner edge
-        var t = Math.pow(Math.random(), 1.75);
-        var r = 1 + t * 1.05;
-        out.push({
-          r: r,
+        var p = {
+          r: 1.02 + Math.pow(Math.random(), 1.75),
           a: Math.random() * TAU,
-          w: 0.34 / (r * r) + 0.015,
-          thick: (Math.random() - 0.5) * (0.06 + 0.16 * t),
-          g0: TIER[0][(Math.random() * TIER[0].length) | 0],
-          g1: TIER[1][(Math.random() * TIER[1].length) | 0],
-          g2: TIER[2][(Math.random() * TIER[2].length) | 0],
+          thick: 0,
           phase: Math.random() * TAU,
-          back: Math.random() < 0.5,
-        });
+          spread: 0.8 + Math.random() * 1.8,
+        };
+        p.thick = (Math.random() - 0.5) * (0.06 + 0.16 * Math.min(1, p.r - 1));
+        assign(p);
+        parts.push(p);
       }
-      return out;
     }
 
     function makeStars(n) {
-      var out = [];
+      stars = [];
       for (var i = 0; i < n; i++) {
-        out.push({
+        stars.push({
           x: Math.random(),
           y: Math.random(),
           z: rand(0.25, 1),
-          g: (Math.random() * ALL.length) | 0,
+          gi: (Math.random() * GLYPHS.length) | 0,
           alpha: rand(0.05, 0.3),
           phase: Math.random() * TAU,
         });
       }
-      return out;
     }
 
     function resize() {
@@ -666,110 +753,110 @@
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildAtlas();
-
-      var phone = w <= 780;
-      var n = phone ? 820 : w < 1100 ? 1700 : 2600;
-      disk = makeDisk(n);
-      stars = makeStars(phone ? 60 : 130);
-
+      if (!parts.length) makeParts(count);
+      if (starsN && !stars.length) makeStars(starsN);
       var badge = $('#sb-glyphs');
-      if (badge) badge.textContent = 'GLYPHS ' + (n + stars.length).toLocaleString('en-US');
-
-      if (!running) draw(performance.now());
+      if (badge && o.badge !== false) {
+        badge.textContent = 'GLYPHS ' + (parts.length + stars.length).toLocaleString('en-US');
+      }
+      if (!running) draw();
     }
 
-    function sprite(gi, si, ti) {
-      return { sx: gi * cell, sy: (ti * SIZES.length + si) * cell, size: cell / dpr };
+    function sprite(gi, ti) {
+      return { sx: gi * cell, sy: ti * SIZES.length * cell + cell, size: cell / dpr };
     }
 
     function plot(gi, ti, x, y, alpha, scale) {
-      var sp = sprite(gi, 1, ti);
+      if (gi < 0 || alpha <= 0.004) return;
+      var sp = sprite(gi, ti);
       var size = sp.size * scale;
       ctx.globalAlpha = alpha;
       ctx.drawImage(atlas, sp.sx, sp.sy, cell, cell, x - size / 2, y - size / 2, size, size);
     }
 
-    function draw(t) {
-      ctx.clearRect(0, 0, w, h);
+    // glyphs that follow the circle, so the ring reads like an inscription
+    function plotRot(gi, ti, x, y, alpha, scale, rot) {
+      if (gi < 0 || alpha <= 0.004) return;
+      var sp = sprite(gi, ti);
+      var size = sp.size * scale;
+      ctx.globalAlpha = alpha;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.drawImage(atlas, sp.sx, sp.sy, cell, cell, -size / 2, -size / 2, size, size);
+      ctx.restore();
+    }
+
+    function draw() {
       if (!atlas) return;
+      ctx.clearRect(0, 0, w, h);
 
-      var phone = w <= 780;
-      var R, cx, cy;
-      if (phone) {
-        R = Math.min(w * 0.3, h * 0.15);
-        cx = w / 2;
-        cy = h * 0.42;
-      } else if (w < 1100) {
-        R = Math.min(w * 0.155, h * 0.2);
-        cx = w / 2;
-        cy = h * 0.56;
-      } else {
-        R = Math.min(w * 0.155, h * 0.235);
-        cx = w / 2;
-        cy = h * 0.57;
-      }
-      geo = { cx: cx, cy: cy, R: R };
+      var g = place(w, h);
+      var R = g.R * grow;
+      var cx = g.cx;
+      var cy = g.cy;
 
-      var FLAT = 0.34;
-
-      // atmosphere
       var glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.5);
-      glow.addColorStop(0, hexA(tints[3], 0.1));
-      glow.addColorStop(0.4, hexA(tints[3], 0.045));
+      glow.addColorStop(0, hexA(tints[3], 0.1 * grow));
+      glow.addColorStop(0.4, hexA(tints[3], 0.045 * grow));
       glow.addColorStop(1, hexA(tints[3], 0));
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, w, h);
 
-      // stars (parallax behind everything)
-      for (var s = 0; s < stars.length; s++) {
-        var st = stars[s];
+      var i, p;
+
+      for (i = 0; i < stars.length; i++) {
+        var st = stars[i];
         var sx = st.x * w + (pointer.x - 0.5) * 26 * st.z;
         var sy = st.y * h + (pointer.y - 0.5) * 20 * st.z;
         var tw = 0.55 + 0.45 * Math.sin(time * 1.1 + st.phase);
-        plot(st.g, st.z > 0.75 ? 2 : st.z > 0.45 ? 1 : 0, sx, sy, st.alpha * tw * 0.8, 0.85);
+        plot(st.gi, st.z > 0.75 ? 2 : st.z > 0.45 ? 1 : 0, sx, sy, st.alpha * tw * 0.8 * dimBase, 0.85);
       }
 
-      var i, p, a, r, ca, sa;
+      var ie = intro < 1 ? 1 - Math.pow(1 - intro, 2.2) : 1;
 
-      /* ── lensed halo: the far side of the disk bent over the top ── */
-      for (i = 0; i < disk.length; i++) {
-        p = disk[i];
-        a = p.a + time * p.w;
-        sa = Math.sin(a);
-        if (sa >= 0) continue;
-        r = p.r;
-        ca = Math.cos(a);
-        var hb = clamp((2.05 - r) / 1.05, 0, 1);
-        var hAlpha = (0.1 + 0.75 * Math.pow(hb, 1.5)) * 0.62;
+      // positions, computed once and shared by the three passes
+      for (i = 0; i < parts.length; i++) {
+        p = parts[i];
+        p.rr = p.r + (1 - ie) * p.spread;
+        p.ca = Math.cos(p.a);
+        p.sa = Math.sin(p.a);
+        // cheap perspective: the near half of the disk is a touch larger
+        p.persp = 1 + 0.16 * p.sa + tiltY * 0.05;
+      }
+
+      /* lensed halo: the far side of the disk bent over the top */
+      for (i = 0; i < parts.length; i++) {
+        p = parts[i];
+        if (p.sa >= 0) continue;
+        var hb = clamp((2.05 - p.rr) / 1.05, 0, 1);
+        var hAlpha = (0.1 + 0.75 * Math.pow(hb, 1.5)) * 0.62 * ie * grow;
         if (hAlpha < 0.03) continue;
-        var hx = cx + ca * r * R * 0.99;
-        var hy = cy - Math.abs(sa) * r * R * 0.76 + p.thick * R * 0.6;
-        var hti = hAlpha > 0.55 ? 3 : hAlpha > 0.32 ? 2 : 1;
-        plot(hti >= 3 ? p.g2 : p.g1, hti, hx, hy, Math.min(1, hAlpha), 0.9);
+        plot(p.gi, hAlpha > 0.55 ? 3 : hAlpha > 0.32 ? 2 : 1,
+          cx + p.ca * p.rr * R * 0.99,
+          cy - Math.abs(p.sa) * p.rr * R * 0.76 + p.thick * R * 0.6,
+          hAlpha * dimBase, 0.9);
       }
 
-      /* ── disk, back half (the shadow erases whatever is inside) ── */
-      for (i = 0; i < disk.length; i++) {
-        p = disk[i];
-        a = p.a + time * p.w;
-        sa = Math.sin(a);
-        if (sa >= 0) continue;
-        r = p.r;
-        ca = Math.cos(a);
-        var db = clamp((2.05 - r) / 1.05, 0, 1);
-        var dAlpha = (0.4 + 0.8 * Math.pow(db, 1.2)) * (0.78 + 0.22 * (0.5 - 0.5 * ca));
-        dAlpha *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + r * 6);
-        if (dAlpha < 0.04) continue;
-        var dx = cx + ca * r * R;
-        var dy = cy + sa * r * R * FLAT + p.thick * R;
-        var dti = dAlpha < 0.25 ? 0 : dAlpha < 0.5 ? 1 : dAlpha < 0.75 ? 2 : dAlpha < 0.92 ? 3 : 4;
-        plot(dti <= 1 ? p.g0 : dti <= 3 ? p.g1 : p.g2, dti, dx, dy, Math.min(1, dAlpha), 0.82 + dAlpha * 0.6);
+      /* disk, back half */
+      for (i = 0; i < parts.length; i++) {
+        p = parts[i];
+        if (p.sa >= 0) continue;
+        var db = clamp((2.05 - p.rr) / 1.05, 0, 1);
+        var dA = (0.2 + 0.9 * Math.pow(db, 1.4)) * (0.78 + 0.22 * (0.5 - 0.5 * p.ca));
+        dA *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + p.rr * 6);
+        dA *= ie * grow * dimBase;
+        if (dA < 0.04) continue;
+        var dti = dA < 0.25 ? 0 : dA < 0.5 ? 1 : dA < 0.75 ? 2 : dA < 0.92 ? 3 : 4;
+        plot(p.gi, dti, cx + p.ca * p.rr * R * p.persp, cy + p.sa * p.rr * R * FLAT * p.persp + p.thick * R,
+          Math.min(1, dA), 0.82 + dA * 0.6);
       }
 
-      /* ── event horizon: erase everything inside, so the page bg shows ── */
+      /* event horizon */
       ctx.save();
+      ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'destination-out';
-      var hole = ctx.createRadialGradient(cx, cy, R * 0.82, cx, cy, R * 1.0);
+      var hole = ctx.createRadialGradient(cx, cy, R * 0.82, cx, cy, R);
       hole.addColorStop(0, 'rgba(0,0,0,1)');
       hole.addColorStop(0.78, 'rgba(0,0,0,0.98)');
       hole.addColorStop(1, 'rgba(0,0,0,0)');
@@ -778,47 +865,50 @@
       ctx.arc(cx, cy, R * 1.01, 0, TAU);
       ctx.fill();
       ctx.restore();
+      ctx.globalAlpha = 1;
 
-      /* ── bloom, then the photon ring on top of it ── */
+      /* bloom + photon ring — the ring spells consecutive lines of the text */
       var bloom = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R * 1.5);
-      bloom.addColorStop(0, hexA(tints[4], 0.16));
-      bloom.addColorStop(0.4, hexA(tints[4], 0.055));
+      bloom.addColorStop(0, hexA(tints[4], 0.16 * grow));
+      bloom.addColorStop(0.4, hexA(tints[4], 0.055 * grow));
       bloom.addColorStop(1, hexA(tints[4], 0));
       ctx.fillStyle = bloom;
       ctx.beginPath();
       ctx.arc(cx, cy, R * 1.5, 0, TAU);
       ctx.fill();
 
-      var ringCount = phone ? 170 : 300;
+      var ringCount = w <= 780 ? 70 : 104;
+      var ringBase = Math.floor(time * 1.6) % HOLE_TEXT.length;
       for (i = 0; i < ringCount; i++) {
-        var ra = (i / ringCount) * TAU + time * 0.06;
+        var ra = (i / ringCount) * TAU + time * 0.05;
+        // the bottom half mirrors the top half, so it reads left-to-right too
+        var flip = Math.sin(ra) > 0 ? ringCount - i : i;
+        var ch = HOLE_TEXT.charAt((ringBase + flip) % HOLE_TEXT.length);
+        var gi = GIDX[ch];
+        if (gi == null) continue;
         var wob = 0.8 + 0.2 * Math.sin(ra * 3 + time * 1.2);
         var rr = R * (1.0 + 0.014 * Math.sin(ra * 5 + time));
-        var rx = cx + Math.cos(ra) * rr;
-        var ry = cy + Math.sin(ra) * rr;
-        var rti = wob > 0.88 ? 4 : 3;
-        plot((i * 7) % ALL.length, rti, rx, ry, 0.35 + 0.65 * wob, 0.8 + wob * 0.35);
+        plot(gi, wob > 0.88 ? 4 : 3,
+          cx + Math.cos(ra) * rr,
+          cy + Math.sin(ra) * rr,
+          (0.35 + 0.65 * wob) * ie * grow * dimBase,
+          0.8 + wob * 0.35);
       }
 
-      /* ── front half of the disk, crossing in front of the shadow ── */
-      for (i = 0; i < disk.length; i++) {
-        p = disk[i];
-        a = p.a + time * p.w;
-        sa = Math.sin(a);
-        if (sa < 0) continue;
-        r = p.r;
-        ca = Math.cos(a);
-        var fb = clamp((2.05 - r) / 1.05, 0, 1);
-        var fAlpha = (0.42 + 0.82 * Math.pow(fb, 1.2)) * (0.8 + 0.2 * (0.5 - 0.5 * ca));
-        fAlpha *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + r * 6);
-        if (fAlpha < 0.04) continue;
-        var fx = cx + ca * r * R;
-        var fy = cy + sa * r * R * FLAT + p.thick * R;
-        var fti = fAlpha < 0.25 ? 0 : fAlpha < 0.5 ? 1 : fAlpha < 0.75 ? 2 : fAlpha < 0.92 ? 3 : 4;
-        plot(fti <= 1 ? p.g0 : fti <= 3 ? p.g1 : p.g2, fti, fx, fy, Math.min(1, fAlpha), 0.84 + fAlpha * 0.65);
+      /* disk, front half */
+      for (i = 0; i < parts.length; i++) {
+        p = parts[i];
+        if (p.sa < 0) continue;
+        var fb = clamp((2.05 - p.rr) / 1.05, 0, 1);
+        var fA = (0.22 + 0.92 * Math.pow(fb, 1.4)) * (0.8 + 0.2 * (0.5 - 0.5 * p.ca));
+        fA *= 0.84 + 0.16 * Math.sin(time * 2.4 + p.phase + p.rr * 6);
+        fA *= ie * grow * dimBase;
+        if (fA < 0.04) continue;
+        var fti = fA < 0.25 ? 0 : fA < 0.5 ? 1 : fA < 0.75 ? 2 : fA < 0.92 ? 3 : 4;
+        plot(p.gi, fti, cx + p.ca * p.rr * R * p.persp, cy + p.sa * p.rr * R * FLAT * p.persp + p.thick * R,
+          Math.min(1, fA), 0.84 + fA * 0.65);
       }
 
-      /* ── click bursts ── */
       for (var bi = bursts.length - 1; bi >= 0; bi--) {
         var burst = bursts[bi];
         var alive = false;
@@ -831,12 +921,30 @@
           q.life -= 0.016;
           if (q.life <= 0) continue;
           alive = true;
-          plot(q.g, q.tint, q.x, q.y, q.life * 0.9, 0.7 + q.life * 0.7);
+          plot(q.gi, q.tint, q.x, q.y, q.life * 0.9 * dimBase, 0.7 + q.life * 0.7);
         }
         if (!alive) bursts.splice(bi, 1);
       }
 
       ctx.globalAlpha = 1;
+    }
+
+    function step(dt) {
+      var s = dt / 1000;
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        p.a += (0.34 / (p.r * p.r) + 0.015) * s;
+        // everything falls inward; the closer it gets, the slower it creeps
+        p.r -= (0.012 + 0.05 * Math.max(0, p.r - 1)) * s * fall;
+        if (p.r < 1.015) {
+          p.r = 2.02 + Math.random() * 0.07;
+          p.a = Math.random() * TAU;
+          p.thick = (Math.random() - 0.5) * (0.06 + 0.16 * Math.min(1, p.r - 1));
+          assign(p);
+        }
+      }
+      if (intro < 1) intro = Math.min(1, intro + s / 1.4);
+      if (grow < 1) grow = Math.min(1, grow + s * 0.75);
     }
 
     function loop(now) {
@@ -846,93 +954,143 @@
       time += dt / 1000;
       pointer.x += (pointer.tx - pointer.x) * 0.05;
       pointer.y += (pointer.ty - pointer.y) * 0.05;
-      TILT.x = pointer.x - 0.5;
-      TILT.y = pointer.y - 0.5;
-      draw(now);
-      paintOrbit(now);
+      tiltX = pointer.x - 0.5;
+      tiltY = pointer.y - 0.5;
+      step(dt);
+      draw();
       raf = requestAnimationFrame(loop);
     }
 
-    function start() {
-      if (running || reduceMotion) return;
-      running = true;
-      last = performance.now();
-      raf = requestAnimationFrame(loop);
-    }
+    return {
+      resize: resize,
+      drawOnce: draw,
+      start: function (replay) {
+        if (replay) intro = 0;
+        if (running) return;
+        if (reduceMotion) {
+          intro = 1;
+          draw();
+          return;
+        }
+        running = true;
+        last = performance.now();
+        raf = requestAnimationFrame(loop);
+      },
+      stop: function () {
+        running = false;
+        cancelAnimationFrame(raf);
+      },
+      replay: function () {
+        intro = 0;
+        if (!running) {
+          intro = 1;
+          draw();
+        }
+      },
+      growIn: function () {
+        grow = 0.18;
+        intro = 0;
+        if (reduceMotion) {
+          grow = 1;
+          intro = 1;
+          draw();
+        }
+      },
+      setPointer: function (x, y) {
+        pointer.tx = clamp(x, 0, 1);
+        pointer.ty = clamp(y, 0, 1);
+      },
+      burst: function (x, y) {
+        var list = [];
+        for (var i = 0; i < 40; i++) {
+          var ang = Math.random() * TAU;
+          var sp = rand(1.2, 4.6);
+          var ch = takeChar();
+          list.push({
+            x: x, y: y,
+            vx: Math.cos(ang) * sp,
+            vy: Math.sin(ang) * sp - 0.5,
+            life: rand(0.5, 1),
+            gi: GIDX[ch] != null ? GIDX[ch] : -1,
+            tint: Math.random() < 0.6 ? 3 : 2,
+          });
+        }
+        bursts.push({ parts: list });
+        if (bursts.length > 4) bursts.shift();
+        if (!running) draw();
+      },
+      themeChanged: function () {
+        buildAtlas();
+        if (!running) draw();
+      },
+      fontsReady: function () {
+        buildAtlas();
+        if (!running) draw();
+      },
+      isRunning: function () { return running; },
+    };
+  }
 
-    function stop() {
-      running = false;
-      cancelAnimationFrame(raf);
-    }
+  function initField() {
+    var canvas = $('#field');
+    if (!canvas) return;
+    var phone = window.innerWidth <= 780;
+    heroHole = createHole(canvas, {
+      count: phone ? 820 : window.innerWidth < 1100 ? 1700 : 2600,
+      stars: phone ? 60 : 130,
+      place: heroPlace,
+    });
+    if (!heroHole) return;
+
+    heroHole.resize();
+    heroHole.drawOnce();
 
     window.addEventListener('pointermove', function (e) {
-      pointer.tx = clamp(e.clientX / window.innerWidth, 0, 1);
-      pointer.ty = clamp(e.clientY / window.innerHeight, 0, 1);
+      heroHole.setPointer(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
     }, { passive: true });
 
     var hero = $('#top');
-    hero && hero.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0 || (e.target.closest && e.target.closest('a, button'))) return;
-      var rect = canvas.getBoundingClientRect();
-      var x = e.clientX - rect.left;
-      var y = e.clientY - rect.top;
-      var parts = [];
-      for (var i = 0; i < 40; i++) {
-        var ang = Math.random() * TAU;
-        var sp = rand(1.2, 4.6);
-        parts.push({
-          x: x, y: y,
-          vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp - 0.5,
-          life: rand(0.5, 1),
-          g: (Math.random() * ALL.length) | 0,
-          tint: Math.random() < 0.6 ? 3 : 2,
+    if (hero) {
+      hero.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0 || (e.target.closest && e.target.closest('a, button'))) return;
+        var rect = canvas.getBoundingClientRect();
+        heroHole.burst(e.clientX - rect.left, e.clientY - rect.top);
+      });
+    }
+
+    if (hero && 'IntersectionObserver' in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) heroHole.start();
+          else heroHole.stop();
         });
-      }
-      bursts.push({ parts: parts });
-      if (bursts.length > 4) bursts.shift();
-      if (!running) draw(performance.now());
+      }, { threshold: 0.02 }).observe(hero);
+    } else {
+      heroHole.start();
+    }
+
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.hidden) heroHole.stop();
+      else if (!reduceMotion) heroHole.start();
     });
+
+    window.addEventListener('themechange', function () { heroHole.themeChanged(); });
 
     var resizeTimer;
     window.addEventListener('resize', function () {
       window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(function () {
-        resize();
+        heroHole.resize();
         layoutOrbit();
         paintOrbit(performance.now());
       }, 150);
     });
 
-    if (hero && 'IntersectionObserver' in window) {
-      new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) start();
-          else stop();
-        });
-      }, { threshold: 0.02 }).observe(hero);
-    } else {
-      start();
-    }
-
-    doc.addEventListener('visibilitychange', function () {
-      if (doc.hidden) stop();
-      else if (!reduceMotion) start();
-    });
-
-    window.addEventListener('themechange', function () {
-      buildAtlas();
-      if (!running) draw(performance.now());
-    });
-
-    resize();
     if (doc.fonts && doc.fonts.ready) {
-      doc.fonts.ready.then(function () {
-        buildAtlas();
-        if (!running) draw(performance.now());
-      });
+      doc.fonts.ready.then(function () { heroHole.fontsReady(); });
     }
   }
+
 
   /* ─────────────────────────────────────────────────────────────────────
      7. scroll progress + nav state + topbar
@@ -1208,6 +1366,7 @@
     function open() {
       if (dlg.open) return;
       dlg.showModal();
+      syncModal();
       input.value = '';
       filter();
       window.setTimeout(function () { input.focus(); }, 20);
@@ -1215,7 +1374,10 @@
 
     function close() {
       if (dlg.open) dlg.close();
+      syncModal();
     }
+
+    dlg.addEventListener('close', syncModal);
 
     function run(i) {
       var cmd = filtered[i];
@@ -1289,6 +1451,7 @@
     renderSocials();
     renderOrbit();
     projectView.init();
+    pvField.init();
     initTheme();
     initLangSwitch();
     initClock();
