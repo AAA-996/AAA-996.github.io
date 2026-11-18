@@ -271,35 +271,6 @@
      faint glyph drift behind the project overlay (keeps the page alive
      without fighting the text)
      ───────────────────────────────────────────────────────────────────── */
-  /* the same hole, smaller, on the right of a project page */
-  var pvField = (function () {
-    var hole = null;
-    return {
-      init: function () {
-        hole = createHole($('#pv-field'), {
-          count: window.innerWidth <= 780 ? 420 : 900,
-          stars: 0,
-          place: function (w, h) {
-            if (w <= 780) return { cx: w * 0.5, cy: h * 0.19, R: Math.min(w * 0.3, h * 0.11) };
-            return { cx: w * 0.75, cy: h * 0.5, R: Math.min(w * 0.155, h * 0.235) };
-          },
-        });
-      },
-      start: function () {
-        if (!hole) return;
-        hole.resize();
-        hole.growIn();
-        hole.start();
-      },
-      stop: function () {
-        if (hole) hole.stop();
-      },
-      setPointer: function (x, y) {
-        if (hole) hole.setPointer(x, y);
-      },
-    };
-  })();
-
   function syncModal() {
     var pv = $('#project-view');
     var pal = $('#palette');
@@ -444,8 +415,13 @@
       fill(clamp(i, 0, WORK.length - 1));
       if (!dlg.open) dlg.showModal();
       doc.body.classList.add('is-locked');
+      doc.body.classList.add('pv-open');
       root.classList.add('has-modal');
-      pvField.start();
+      // the same hole glides to the right instead of a hard cut
+      if (heroHole) {
+        if (window.innerWidth <= 900) heroHole.setShift(0, -0.16, 0.85);
+        else heroHole.setShift(0.25, -0.07, 0.93);
+      }
       var closeBtn = $('#pv-close');
       if (closeBtn) closeBtn.focus({ preventScroll: true });
     }
@@ -484,16 +460,18 @@
 
       dlg.addEventListener('close', function () {
         doc.body.classList.remove('is-locked');
+        doc.body.classList.remove('pv-open');
         root.classList.remove('has-modal');
-        pvField.stop();
-        // back to the front page: everything falls in again
-        if (heroHole) heroHole.replay();
+        // and glides back to the middle
+        if (heroHole) heroHole.setShift(0, 0, 1);
         if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
       });
 
-      // the hole on the right leans with the pointer
+      // the hole follows the pointer on the project page too
       dlg.addEventListener('pointermove', function (e) {
-        pvField.setPointer(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+        if (heroHole) {
+          heroHole.setPointer(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+        }
       }, { passive: true });
 
       doc.addEventListener('keydown', function (e) {
@@ -739,6 +717,8 @@
     var pointer = { x: 0.5, y: 0.5, tx: 0.5, ty: 0.5 };
     var tiltX = 0;
     var tiltY = 0;
+    // the hole itself can slide (home → project page), so the move is continuous
+    var shift = { x: 0, y: 0, s: 1, tx: 0, ty: 0, ts: 1 };
 
     function hexA(hex, a) {
       var s = String(hex).replace('#', '').trim();
@@ -824,15 +804,18 @@
       }
     }
 
+    // the whole background is a star field orbiting the hole
     function makeStars(n) {
       stars = [];
       for (var i = 0; i < n; i++) {
+        var r = Math.pow(Math.random(), 0.55);
         stars.push({
-          x: Math.random(),
-          y: Math.random(),
-          z: rand(0.25, 1),
+          r: 0.05 + r * 0.95,
+          a: Math.random() * TAU,
+          spin: (0.018 + Math.random() * 0.05) / (0.4 + r),
           gi: (Math.random() * GLYPHS.length) | 0,
-          alpha: rand(0.05, 0.3),
+          alpha: 0.05 + Math.random() * 0.34,
+          size: 0.55 + Math.random() * 0.85,
           phase: Math.random() * TAU,
         });
       }
@@ -886,9 +869,9 @@
       ctx.clearRect(0, 0, w, h);
 
       var g = place(w, h);
-      var R = g.R * grow;
-      var cx = g.cx;
-      var cy = g.cy;
+      var R = g.R * grow * shift.s;
+      var cx = g.cx + shift.x;
+      var cy = g.cy + shift.y;
 
       var glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.5);
       glow.addColorStop(0, hexA(tints[3], 0.1 * grow));
@@ -899,12 +882,14 @@
 
       var i, p;
 
+      var farR = Math.hypot(w, h) * 0.62;
       for (i = 0; i < stars.length; i++) {
         var st = stars[i];
-        var sx = st.x * w + (pointer.x - 0.5) * 26 * st.z;
-        var sy = st.y * h + (pointer.y - 0.5) * 20 * st.z;
-        var tw = 0.55 + 0.45 * Math.sin(time * 1.1 + st.phase);
-        plot(st.gi, st.z > 0.75 ? 2 : st.z > 0.45 ? 1 : 0, sx, sy, st.alpha * tw * 0.8 * dimBase, 0.85);
+        var sr = st.r * farR;
+        var sx = cx + Math.cos(st.a) * sr + (pointer.x - 0.5) * 26 * st.r;
+        var sy = cy + Math.sin(st.a) * sr * 0.88 + (pointer.y - 0.5) * 20 * st.r;
+        var tw = 0.6 + 0.4 * Math.sin(time * (0.5 + st.r) + st.phase);
+        plot(st.gi, st.r > 0.72 ? 2 : st.r > 0.4 ? 1 : 0, sx, sy, st.alpha * tw * dimBase, st.size);
       }
 
       var ie = intro < 1 ? 1 - Math.pow(1 - intro, 2.2) : 1;
@@ -1053,6 +1038,16 @@
       if (intro < 1) intro = Math.min(1, intro + s / 1.4);
       if (grow < 1) grow = Math.min(1, grow + s * 0.75);
 
+      // ease towards the requested hole position
+      var k = Math.min(1, dt / 150);
+      shift.x += (shift.tx - shift.x) * k;
+      shift.y += (shift.ty - shift.y) * k;
+      shift.s += (shift.ts - shift.s) * k;
+
+      for (var si = 0; si < stars.length; si++) {
+        stars[si].a += stars[si].spin * s;
+      }
+
       // the inner matter drifts, and occasionally swaps a character
       for (var k = 0; k < inner.length; k++) {
         inner[k].a += inner[k].spin * s;
@@ -1111,6 +1106,23 @@
           draw();
         }
       },
+      // move the hole to a new place without cutting: dx/dy are fractions of the viewport
+      setShift: function (dx, dy, scale) {
+        shift.tx = (dx || 0) * w;
+        shift.ty = (dy || 0) * h;
+        shift.ts = scale == null ? 1 : scale;
+        if (reduceMotion) {
+          shift.x = shift.tx;
+          shift.y = shift.ty;
+          shift.s = shift.ts;
+          draw();
+        }
+      },
+      snapShift: function () {
+        shift.x = shift.tx;
+        shift.y = shift.ty;
+        shift.s = shift.ts;
+      },
       setPointer: function (x, y) {
         pointer.tx = clamp(x, 0, 1);
         pointer.ty = clamp(y, 0, 1);
@@ -1152,7 +1164,7 @@
     var phone = window.innerWidth <= 780;
     heroHole = createHole(canvas, {
       count: phone ? 820 : window.innerWidth < 1100 ? 1700 : 2600,
-      stars: phone ? 60 : 130,
+      stars: phone ? 170 : 430,
       place: heroPlace,
     });
     if (!heroHole) return;
@@ -1564,7 +1576,6 @@
     renderOrbit();
     initStackOrbit();
     projectView.init();
-    pvField.init();
     initTheme();
     initLangSwitch();
     initClock();

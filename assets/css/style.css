@@ -1357,23 +1357,14 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
   margin: 0;
   padding: 0;
   border: 0;
-  background: var(--bg);
+  background: transparent;
   color: var(--ink-2);
   overflow: hidden;
 }
 
-/* slow text-drift canvas that also carries the hole on the right */
-.pv-field {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-}
-
+/* the universe stays visible behind the reading pane */
 .project-view::backdrop {
-  background: var(--bg);
+  background: transparent;
 }
 
 .project-view[open] {
@@ -1395,6 +1386,16 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+/* a scrim only over the text side, so the hole on the right stays clean */
+.pv-shell::before {
+  content: ";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 42%, transparent 60%);
+}
+
 .pv-bar {
   display: flex;
   align-items: center;
@@ -1403,6 +1404,7 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
   height: 58px;
   padding: 0 var(--gutter);
   border-bottom: 1px solid var(--line-soft);
+  background: var(--bg);
 }
 
 .pv-crumb {
@@ -1715,6 +1717,7 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
   height: 56px;
   padding: 0 var(--gutter);
   border-top: 1px solid var(--line-soft);
+  background: var(--bg);
 }
 
 .pv-nav {
@@ -2320,5 +2323,37 @@ html.ready .orbit-slot .node {
 
   .mail-link {
     display: none;
+  }
+}
+
+/* ── 19. the project page keeps the same universe behind it ────────────── */
+body.pv-open .topbar,
+body.pv-open .hero-caption,
+body.pv-open .orbit,
+body.pv-open .stack-orbit,
+body.pv-open .statusbar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s var(--ease);
+}
+
+.topbar,
+.hero-caption,
+.orbit,
+.stack-orbit,
+.statusbar {
+  transition: opacity 0.4s var(--ease);
+}
+
+/* phones: the hole sits above the text, so the scrim runs vertically */
+@media (max-width: 900px) {
+  .pv-shell::before {
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      transparent 30%,
+      var(--bg) 46%,
+      var(--bg) 100%
+    );
   }
 }
