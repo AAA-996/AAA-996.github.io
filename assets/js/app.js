@@ -229,6 +229,42 @@
       orbitState.slots[i].style.transform =
         'translate(-50%, -50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
     }
+
+    // the tech stack keeps turning around the hole, in very small type
+    if (stackWords.length) {
+      var turn = t * 0.000055;
+      var srx = (orbitState.R || 200) * 2.05;
+      var sry = (orbitState.R || 200) * 1.28;
+      for (var k = 0; k < stackWords.length; k++) {
+        var sa = turn + (k / stackWords.length) * TAU;
+        var sx = orbitState.ox + Math.cos(sa) * srx;
+        var sy = orbitState.oy + Math.sin(sa) * sry;
+        var depth = (Math.sin(sa) + 1) / 2; // 0 = behind the hole, 1 = in front
+        stackWords[k].style.transform =
+          'translate(-50%, -50%) translate(' + sx.toFixed(1) + 'px,' + sy.toFixed(1) + 'px)';
+        stackWords[k].style.opacity = (0.22 + depth * 0.46).toFixed(2);
+        stackWords[k].style.zIndex = depth > 0.5 ? '2' : '1';
+      }
+    }
+  }
+
+  var stackWords = [];
+
+  function initStackOrbit() {
+    var box = $('#stack-orbit');
+    if (!box || !CFG.stack) return;
+    var list = [];
+    CFG.stack.forEach(function (g) {
+      (g.items || []).slice(0, 2).forEach(function (it) {
+        var t = typeof it === 'string' ? it : it.zh || it.en || '';
+        if (t) list.push(t);
+      });
+    });
+    list = list.slice(0, 18);
+    box.innerHTML = list
+      .map(function (w) { return '<span class="stack-word">' + esc(w) + '</span>'; })
+      .join('');
+    stackWords = $$('.stack-word', box);
   }
 
   /* ─────────────────────────────────────────────────────────────────────
@@ -327,6 +363,45 @@
         return '<li>' + esc(t) + '</li>';
       }).join('');
       tags.hidden = !(w.tags || []).length;
+
+      // sub-projects: each one is a titled block with its own links
+      var sections = $('#pv-sections');
+      if (sections) {
+        var list = w.sections || [];
+        if (list.length) {
+          sections.innerHTML = list
+            .map(function (sc, si) {
+              var scTags = (sc.tags || []).length
+                ? '<ul class="pv-tags">' +
+                  sc.tags.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') +
+                  '</ul>'
+                : '';
+              var scLinks = (sc.links || []).length
+                ? '<div class="pv-actions">' +
+                  sc.links.map(function (l) {
+                    return (
+                      '<a class="pv-link" href="' + esc(l.href) + '" target="_blank" rel="noreferrer noopener">' +
+                      L(l.label) + ' <span aria-hidden="true">↗</span></a>'
+                    );
+                  }).join('') +
+                  '</div>'
+                : '';
+              return (
+                '<section class="pv-section">' +
+                '<p class="pv-section-meta"><span class="pv-section-idx">' + pad(si + 1) + '</span>' + L(sc.meta || '') + '</p>' +
+                '<h3 class="pv-section-title">' + L(sc.title) + '</h3>' +
+                (sc.blurb ? '<p class="pv-blurb">' + L(sc.blurb) + '</p>' : '') +
+                scTags + scLinks +
+                '</section>'
+              );
+            })
+            .join('');
+          sections.hidden = false;
+        } else {
+          sections.innerHTML = '';
+          sections.hidden = true;
+        }
+      }
 
       var actions = $('#pv-actions');
       var links = w.links || (w.link ? [w.link] : []);
@@ -651,6 +726,7 @@
     var atlas = null;
     var tints = ['#333333', '#666666', '#999999', '#cccccc', '#ffffff'];
     var parts = [];
+    var inner = [];
     var stars = [];
     var bursts = [];
     var time = 0;
@@ -727,6 +803,24 @@
         p.thick = (Math.random() - 0.5) * (0.06 + 0.16 * Math.min(1, p.r - 1));
         assign(p);
         parts.push(p);
+      }
+      makeInner(w <= 780 ? 26 : 58);
+    }
+
+    // a few characters survive inside the shadow — that is what gives the void depth
+    function makeInner(n) {
+      inner = [];
+      for (var i = 0; i < n; i++) {
+        var q = {
+          r: 0.14 + Math.pow(Math.random(), 1.5) * 0.68,
+          a: Math.random() * TAU,
+          spin: 0.04 + Math.random() * 0.22,
+          phase: Math.random() * TAU,
+          alpha: 0,
+        };
+        q.alpha = 0.07 + q.r * 0.2 + Math.random() * 0.06;
+        assign(q);
+        inner.push(q);
       }
     }
 
@@ -867,6 +961,19 @@
       ctx.restore();
       ctx.globalAlpha = 1;
 
+      /* a few glyphs stay inside the shadow, so the void reads as depth, not a hole */
+      for (i = 0; i < inner.length; i++) {
+        var q = inner[i];
+        var qa = q.a + time * q.spin;
+        var qr = q.r * R;
+        var qalpha = q.alpha * (0.62 + 0.38 * Math.sin(time * 1.15 + q.phase)) * ie * grow * dimBase;
+        if (qalpha < 0.012) continue;
+        plot(q.gi, q.r > 0.58 ? 2 : 1,
+          cx + Math.cos(qa) * qr,
+          cy + Math.sin(qa) * qr * 0.94,
+          qalpha, 0.72 + q.r * 0.45);
+      }
+
       /* bloom + photon ring — the ring spells consecutive lines of the text */
       var bloom = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R * 1.5);
       bloom.addColorStop(0, hexA(tints[4], 0.16 * grow));
@@ -945,6 +1052,14 @@
       }
       if (intro < 1) intro = Math.min(1, intro + s / 1.4);
       if (grow < 1) grow = Math.min(1, grow + s * 0.75);
+
+      // the inner matter drifts, and occasionally swaps a character
+      for (var k = 0; k < inner.length; k++) {
+        inner[k].a += inner[k].spin * s;
+      }
+      if (inner.length && Math.random() < 0.01) {
+        assign(inner[(Math.random() * inner.length) | 0]);
+      }
     }
 
     function loop(now) {
@@ -1306,9 +1421,6 @@
     }
 
     var commands = [
-      { label: { zh: '跳到 关于', en: 'Go to About' }, hint: '01', run: function () { go('#about'); } },
-      { label: { zh: '跳到 技术栈', en: 'Go to Stack' }, hint: '02', run: function () { go('#stack'); } },
-      { label: { zh: '跳到 联系', en: 'Go to Contact' }, hint: '03', run: function () { go('#contact'); } },
       { label: { zh: '复制主邮箱', en: 'Copy email' }, hint: 'clip', run: copyEmail },
       { label: { zh: '切换主题', en: 'Toggle theme' }, hint: 'T', run: function () { toggleTheme(); } },
       { label: { zh: '切换语言', en: 'Switch language' }, hint: 'L', run: toggleLang },
@@ -1450,6 +1562,7 @@
     renderStack();
     renderSocials();
     renderOrbit();
+    initStackOrbit();
     projectView.init();
     pvField.init();
     initTheme();

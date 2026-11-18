@@ -37,53 +37,45 @@ window.CONFIG = {
      ──────────────────────────────────────────────────────────────────────── */
   work: [
     {
-      title: { zh: 'RoboMaster 电控学习历程', en: 'RoboMaster Electronics Log' },
-      short: { zh: '电控历程', en: 'Electronics Log' },
+      title: { zh: '项目', en: 'Projects' },
+      short: { zh: '项目', en: 'Projects' },
       year: '2025 — 2026',
-      kind: { zh: '电控 · 嵌入式', en: 'ELECTRONICS · EMBEDDED' },
+      kind: { zh: 'RoboMaster · 电控与固件', en: 'ROBOMASTER · ELECTRONICS & FIRMWARE' },
       blurb: {
-        zh: '从最小系统板到整车主控的记录：电源、CAN、PWM、电机驱动，按机器人角色拆成两条分支迭代——工程机器人与步兵。每条分支都对应一次完整的上车验证，不是纸上谈兵。',
-        en: 'A log that runs from the first minimum-system board to a full robot controller: power, CAN, PWM, motor drivers. Iterated along two roles — engineer and infantry — with each branch validated on a real robot.',
+        zh: '两段并行的工程记录：一条是从最小系统板到整车主控的电控链路，一条是 H7 主控与 DM 电机的通信固件。都还在私有仓库里，下面是它们各自的样子。',
+        en: 'Two engineering logs running in parallel: an electronics path from minimum-system board to a full robot controller, and STM32H7 firmware for the DM motor link. Both are private for now.',
       },
-      tags: ['C', 'STM32', 'CAN', 'POWER'],
-      private: true,
-      // ▼ 截图放这里：images: ['assets/img/robomaster/board.jpg', 'assets/img/robomaster/robot.jpg'],
-      images: [],
-      links: [
-        {
-          label: { zh: '主仓库', en: 'REPOSITORY' },
-          href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey',
-        },
-        {
-          label: { zh: '工程机器人分支', en: 'ENGINEER BRANCH' },
-          href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey/tree/Engineer',
-        },
-        {
-          label: { zh: '步兵分支', en: 'INFANTRY BRANCH' },
-          href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey/tree/PassHole_Infantry',
-        },
-      ],
-    },
-    {
-      title: { zh: 'lnk-DMh7 · H7 主控与 DM 电机链路', en: 'lnk-DMh7 · H7 Controller & DM Motor Link' },
-      short: { zh: 'H7 电机链路', en: 'H7 Motor Link' },
-      year: '2026',
-      kind: { zh: '固件 · 通信', en: 'FIRMWARE · COMMS' },
-      blurb: {
-        zh: '基于 STM32H7 的主控与 DM 电机通信链路：把反馈解析、控制指令和安全保护串成一条可复现的通路。fix 分支专门处理异常与边界情况——掉电、丢帧、堵转，以及那些只在赛场上出现一次的问题。',
-        en: 'An STM32H7 controller and DM motor link: feedback parsing, command output and safety checks on one reproducible path. The fix branch is dedicated to fault handling — brownouts, dropped frames, stalls, and the ones that only happen once on the field.',
-      },
-      tags: ['STM32H7', 'CAN', 'MOTOR CONTROL'],
+      tags: ['C', 'STM32', 'CAN', 'MOTOR'],
       private: true,
       images: [],
-      links: [
+      // 详情页里按顺序展开的子项目
+      sections: [
         {
-          label: { zh: '主仓库', en: 'REPOSITORY' },
-          href: 'https://github.com/AAA-996/lnk-DMh7',
+          title: { zh: 'RoboMaster 电控学习历程', en: 'RoboMaster Electronics Log' },
+          meta: { zh: '2025 — 2026 · 电控 · 嵌入式', en: '2025 - 2026 · ELECTRONICS · EMBEDDED' },
+          blurb: {
+            zh: '从最小系统板到整车主控的记录：电源、CAN、PWM、电机驱动，按机器人角色拆成两条分支迭代——工程机器人与步兵。每条分支都对应一次完整的上车验证，不是纸上谈兵。',
+            en: 'A log that runs from the first minimum-system board to a full robot controller: power, CAN, PWM, motor drivers. Iterated along two roles - engineer and infantry - with each branch validated on a real robot.',
+          },
+          tags: ['C', 'STM32', 'CAN', 'POWER'],
+          links: [
+            { label: { zh: '主仓库', en: 'REPOSITORY' }, href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey' },
+            { label: { zh: '工程机器人分支', en: 'ENGINEER BRANCH' }, href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey/tree/Engineer' },
+            { label: { zh: '步兵分支', en: 'INFANTRY BRANCH' }, href: 'https://github.com/AAA-996/Robomaster-my-electricity-learning-journey/tree/PassHole_Infantry' },
+          ],
         },
         {
-          label: { zh: '修复分支', en: 'FIX BRANCH' },
-          href: 'https://github.com/AAA-996/lnk-DMh7/tree/fix/safety-and-bugs',
+          title: { zh: 'lnk-DMh7 · H7 主控与 DM 电机链路', en: 'lnk-DMh7 · H7 Controller & DM Motor Link' },
+          meta: { zh: '2026 · 固件 · 通信', en: '2026 · FIRMWARE · COMMS' },
+          blurb: {
+            zh: '基于 STM32H7 的主控与 DM 电机通信链路：把反馈解析、控制指令和安全保护串成一条可复现的通路。fix 分支专门处理异常与边界情况——掉电、丢帧、堵转，以及那些只在赛场上出现一次的问题。',
+            en: 'An STM32H7 controller and DM motor link: feedback parsing, command output and safety checks on one reproducible path. The fix branch is dedicated to fault handling - brownouts, dropped frames, stalls, and the ones that only happen once on the field.',
+          },
+          tags: ['STM32H7', 'CAN', 'MOTOR CONTROL'],
+          links: [
+            { label: { zh: '主仓库', en: 'REPOSITORY' }, href: 'https://github.com/AAA-996/lnk-DMh7' },
+            { label: { zh: '修复分支', en: 'FIX BRANCH' }, href: 'https://github.com/AAA-996/lnk-DMh7/tree/fix/safety-and-bugs' },
+          ],
         },
       ],
     },
@@ -93,8 +85,8 @@ window.CONFIG = {
       year: '2026',
       kind: { zh: '前端 · 自娱自乐', en: 'META' },
       blurb: {
-        zh: '手写、零依赖、一个 canvas。首页那个黑洞是字符点阵的实时投影：吸积盘按开普勒速度旋转，背面被引力透镜弯成上方的弧，中间的黑影是事件视界。鼠标会让它倾斜，点击会炸开。',
-        en: 'Hand-built, zero dependencies, one canvas. The hole on the front page is a live projection of monospace glyphs: a Keplerian accretion disk, with the far side bent into an arc by gravitational lensing, and the shadow of the event horizon in the middle.',
+        zh: '手写、零依赖、一个 canvas。首页那个黑洞是字符点阵的实时投影：吸盘按开普勒速度旋转，背面被引力透镜弯成上方的弧，中间的黑影是事件视界。字符取自《查拉图斯特拉如是说》序言。',
+        en: 'Hand-built, zero dependencies, one canvas. The hole is a live projection of monospace glyphs: a Keplerian accretion disk, the far side bent into an arc by lensing, and the shadow of the event horizon. Every glyph comes from Thus Spake Zarathustra.',
       },
       tags: ['CANVAS', 'CSS', 'JAVASCRIPT'],
       images: [],

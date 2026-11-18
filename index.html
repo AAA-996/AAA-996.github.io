@@ -53,13 +53,10 @@
         <span class="wordmark-text" data-bind="handle">@AAA-996</span>
       </a>
 
-      <nav class="nav" aria-label="Sections">
-        <a href="#about" data-nav="about"><span>01</span><span lang="zh">关于</span><span lang="en">README</span></a>
-        <a href="#stack" data-nav="stack"><span>02</span><span lang="zh">技术栈</span><span lang="en">STACK</span></a>
-        <a href="#contact" data-nav="contact"><span>03</span><span lang="zh">联系</span><span lang="en">CONTACT</span></a>
-      </nav>
-
       <div class="topbar-actions">
+        <a class="mail-link" data-bind-href="mailto" href="mailto:zbinhr0831@gmail.com">
+          <span data-bind="email">zbinhr0831@gmail.com</span>
+        </a>
         <button class="icon-btn" id="theme-toggle" aria-label="Switch colour theme" title="Toggle theme (T)">
           <span class="theme-dot"></span>
         </button>
@@ -72,7 +69,7 @@
 
   <main id="main">
     <!-- ══════════════════════════════════════════════════════════
-         HERO — ASCII black hole in the middle, projects orbiting it
+         HERO — the black hole, projects orbiting, stack ring turning
          ══════════════════════════════════════════════════════════ -->
     <section class="hero" id="top" aria-label="Introduction">
       <canvas id="field" class="field" aria-hidden="true"></canvas>
@@ -94,184 +91,14 @@
         </p>
 
         <p class="orbit-hint">
-          <span lang="zh">点击下面的项目，看它做了什么</span>
+          <span lang="zh">点击项目，看它做了什么</span>
           <span lang="en">click a project to open it</span>
         </p>
       </div>
 
       <div class="orbit" id="orbit"></div>
 
-      <div class="hero-rail" aria-hidden="true">
-        <span lang="zh">向下滚动</span><span lang="en">SCROLL</span><i></i>
-      </div>
-
-      <div class="ticker" aria-hidden="true">
-        <div class="ticker-track" id="ticker-track"></div>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════════════════════
-         01 / ABOUT
-         ══════════════════════════════════════════════════════════ -->
-    <section class="panel" id="about" aria-labelledby="about-title">
-      <div class="container">
-        <header class="panel-head reveal">
-          <span class="panel-num">01</span>
-          <div class="panel-heading">
-            <p class="panel-label">README</p>
-            <h2 class="panel-title" id="about-title">
-              <span lang="zh">一份简短的自我介绍<span class="accent">。</span></span>
-              <span lang="en">A short introduction<span class="accent">.</span></span>
-            </h2>
-          </div>
-          <p class="panel-note">
-            <span lang="zh">更新于 2026.11</span><span lang="en">last edit · 2026.11</span>
-          </p>
-        </header>
-
-        <div class="about-grid">
-          <div class="idcard reveal">
-            <div class="idcard-bar">
-              <span></span><span></span><span></span>
-              <em>~/whoami</em>
-            </div>
-            <dl class="idcard-body">
-              <div><dt>name</dt><dd data-bind="name">NOAH ZHENG</dd></div>
-              <div>
-                <dt>role</dt>
-                <dd lang="zh">电控 · 嵌入式</dd><dd lang="en">electronics &amp; embedded</dd>
-              </div>
-              <div>
-                <dt>base</dt>
-                <dd lang="zh">中国 · UTC+8</dd><dd lang="en">China · UTC+8</dd>
-              </div>
-              <div>
-                <dt>focus</dt>
-                <dd lang="zh">RoboMaster · 电机控制</dd><dd lang="en">RoboMaster · motor control</dd>
-              </div>
-              <div><dt>stack</dt><dd>c · c++ · stm32</dd></div>
-              <div>
-                <dt>status</dt>
-                <dd class="ok" lang="zh">● 在线，欢迎交流</dd>
-                <dd class="ok" lang="en">● online, say hi</dd>
-              </div>
-            </dl>
-            <div class="idcard-foot">
-              <span>ID 0001</span>
-              <span class="bars" aria-hidden="true">▚▚▚▚▚▚</span>
-            </div>
-          </div>
-
-          <div class="about-text reveal">
-            <p class="about-lead">
-              <span lang="zh">我做的事，大多是把「电」变成「会动的机器」。</span>
-              <span lang="en">Most of what I do is turning electricity into a machine that moves.</span>
-            </p>
-            <p>
-              <span lang="zh">我的兴趣落在硬件和代码的交界处：电源怎么稳、CAN 上丢了帧怎么办、电机低速时为什么抖。这些问题不写进论文，但决定一台机器人能不能跑完一场比赛。</span>
-              <span lang="en">My interest sits where hardware meets code: how to keep a rail stable, what to do when a CAN frame goes missing, why a motor stutters at low speed. None of it is glamorous, but it decides whether a robot finishes a match.</span>
-            </p>
-            <p>
-              <span lang="zh">所以我的项目大多是「记录」：把踩过的坑、验证过的电路、终于调通的控制写成能复现的东西。做 RoboMaster 这段时间，我更像一个在实验室里记笔记的人。</span>
-              <span lang="en">So most of my projects are logs: the pitfalls, the circuits that worked, the control loops that finally ran. RoboMaster has mostly turned me into someone who takes notes in a lab.</span>
-            </p>
-            <ul class="about-list">
-              <li>
-                <span>01</span>
-                <span lang="zh">从最小系统板到整车主控的电控链路。</span>
-                <span lang="en">An electronics path from minimum-system board to full robot controller.</span>
-              </li>
-              <li>
-                <span>02</span>
-                <span lang="zh">按机器人角色（工程 / 步兵）分支撑的固件迭代。</span>
-                <span lang="en">Firmware iterated per robot role — engineer and infantry.</span>
-              </li>
-              <li>
-                <span>03</span>
-                <span lang="zh">把故障保护当成功能来写，而不是当补丁。</span>
-                <span lang="en">Writing fault protection as a feature, not a patch.</span>
-              </li>
-            </ul>
-
-            <p class="text-credit">
-              <span class="k">TEXT</span>
-              <span lang="zh">首页黑洞里的每一个字符，都取自《查拉图斯特拉如是说》序言——Thomas Common 英译，公有领域。<a href="https://www.gutenberg.org/ebooks/1998" target="_blank" rel="noreferrer noopener">原文 ↗</a></span>
-              <span lang="en">Every character in the hole is taken from the Prologue of <em>Thus Spake Zarathustra</em>, translated by Thomas Common. <a href="https://www.gutenberg.org/ebooks/1998" target="_blank" rel="noreferrer noopener">Source ↗</a></span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════════════════════
-         02 / STACK
-         ══════════════════════════════════════════════════════════ -->
-    <section class="panel" id="stack" aria-labelledby="stack-title">
-      <div class="container">
-        <header class="panel-head reveal">
-          <span class="panel-num">02</span>
-          <div class="panel-heading">
-            <p class="panel-label"><span lang="zh">技术栈</span><span lang="en">STACK</span></p>
-            <h2 class="panel-title" id="stack-title">
-              <span lang="zh">手边这些东西<span class="accent">。</span></span>
-              <span lang="en">Tools of the trade<span class="accent">.</span></span>
-            </h2>
-          </div>
-          <p class="panel-note">
-            <span lang="zh">够用就好</span><span lang="en">boring choices, mostly</span>
-          </p>
-        </header>
-
-        <div class="stack-grid" id="stack-grid"></div>
-
-        <div class="stack-note reveal">
-          <p>
-            <span class="k" lang="zh">一点想法</span><span class="k" lang="en">PHILOSOPHY</span>
-            <span lang="zh">能示波器上看到的现象，就不要靠猜。代码里每一处「应该没问题」，最后都会在赛场上还给你。</span>
-            <span lang="en">If it can be seen on a scope, it should not be guessed. Every “should be fine” in the code eventually comes back at you on the field.</span>
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════════════════════
-         03 / CONTACT
-         ══════════════════════════════════════════════════════════ -->
-    <section class="panel panel-contact" id="contact" aria-labelledby="contact-title">
-      <div class="container">
-        <header class="panel-head reveal">
-          <span class="panel-num">03</span>
-          <div class="panel-heading">
-            <p class="panel-label"><span lang="zh">联系</span><span lang="en">CONTACT</span></p>
-            <h2 class="panel-title" id="contact-title">
-              <span lang="zh">说句话<span class="accent">。</span></span>
-              <span lang="en">Say hello<span class="accent">.</span></span>
-            </h2>
-          </div>
-          <p class="panel-note">
-            <span lang="zh">一般 48 小时内回</span><span lang="en">replies within 48h</span>
-          </p>
-        </header>
-
-        <p class="contact-lede reveal">
-          <span lang="zh">邮件最快。两个邮箱都在用：Gmail 日常收，QQ 邮箱也不会漏。想聊 RoboMaster、想做项目、或者发现上面哪句写错了，都欢迎。</span>
-          <span lang="en">Email is the fastest way in. I check both: Gmail daily, QQ mail as a backup. RoboMaster, side projects, or a correction to something above — all welcome.</span>
-        </p>
-
-        <a class="mailto reveal" href="mailto:zbinhr0831@gmail.com" data-bind-href="mailto">
-          <span data-bind="email">zbinhr0831@gmail.com</span>
-          <span class="mailto-arrow" aria-hidden="true">↗</span>
-        </a>
-
-        <ul class="socials reveal" id="socials"></ul>
-
-        <p class="contact-foot reveal">
-          <span class="k" lang="zh">版权</span><span class="k" lang="en">COPYRIGHT</span>
-          © <span id="year">2026</span> <span data-bind="name">NOAH ZHENG</span> ·
-          <span lang="zh">手写代码，无框架，无追踪。</span>
-          <span lang="en">built by hand, no framework, no tracker.</span>
-        </p>
-      </div>
+      <div class="stack-orbit" id="stack-orbit" aria-hidden="true"></div>
     </section>
   </main>
 
@@ -306,6 +133,8 @@
           <div class="pv-media" id="pv-media"></div>
 
           <ul class="pv-tags" id="pv-tags"></ul>
+
+          <div class="pv-sections" id="pv-sections"></div>
 
           <div class="pv-actions" id="pv-actions"></div>
 
