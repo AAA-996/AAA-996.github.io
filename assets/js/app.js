@@ -733,6 +733,7 @@
     var parts = [];
     var inner = [];
     var stars = [];
+    var page = null;
     var bursts = [];
     var time = 0;
     var raf = 0;
@@ -863,6 +864,32 @@
     }
 
     // the whole background is a star field orbiting the hole
+    // the book laid out as a full-page grid — this is the "universe" the hole sits in
+    function buildPage() {
+      if (!GLYPHS.length) return;
+      page = doc.createElement('canvas');
+      page.width = Math.round(w * dpr);
+      page.height = Math.round(h * dpr);
+      var g = page.getContext('2d');
+      if (!g) return;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var cell = w <= 780 ? 13 : 12;
+      var lead = cell * 1.08;
+      var cols = Math.ceil(w / cell) + 1;
+      var rows = Math.ceil(h / lead) + 1;
+      g.font = '500 ' + (cell * 0.82).toFixed(1) + 'px ' + FONT;
+      g.textBaseline = 'top';
+      g.fillStyle = tints[2] || '#777777';
+      var idx = 0;
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          var ch = HOLE_TEXT.charAt(idx++ % HOLE_TEXT.length);
+          if (ch === ' ' || ch === '\n' || ch === '\t') continue;
+          g.fillText(ch, c * cell, r * lead);
+        }
+      }
+    }
+
     function makeStars(n) {
       stars = [];
       for (var i = 0; i < n; i++) {
@@ -888,6 +915,7 @@
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       buildAtlas();
+      buildPage();
       if (!parts.length) makeParts(count);
       if (starsN && !stars.length) makeStars(starsN);
       var badge = $('#sb-glyphs');
@@ -928,10 +956,17 @@
 
       sizeBoost = (1 + (shift.s - 1) * 0.5) * (1 - 0.25 * collapse);
       alphaMul = 1 - 0.25 * collapse;
+      var ie = intro < 1 ? 1 - Math.pow(1 - intro, 2.2) : 1;
       var g = place(w, h);
       var R = g.R * grow * shift.s;
       var cx = g.cx + shift.x;
       var cy = g.cy + shift.y;
+
+      if (page) {
+        ctx.globalAlpha = (o.pageAlpha == null ? 0.4 : o.pageAlpha) * (1 - collapse) * ie * grow;
+        ctx.drawImage(page, 0, 0, w, h);
+        ctx.globalAlpha = 1;
+      }
 
       var glow = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.5);
       glow.addColorStop(0, hexA(tints[3], 0.1 * grow));
@@ -939,6 +974,19 @@
       glow.addColorStop(1, hexA(tints[3], 0));
       ctx.fillStyle = glow;
       ctx.fillRect(0, 0, w, h);
+
+      // light spills onto the page right at the rim, so the letters there read as stretched
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      var rimLight = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 2.1);
+      rimLight.addColorStop(0, hexA(tints[4], 0.22 * grow * ie));
+      rimLight.addColorStop(0.28, hexA(tints[4], 0.09 * grow * ie));
+      rimLight.addColorStop(1, hexA(tints[4], 0));
+      ctx.fillStyle = rimLight;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * 2.1, 0, TAU);
+      ctx.fill();
+      ctx.restore();
 
       var i, p;
 
@@ -952,8 +1000,6 @@
         var tw = 0.6 + 0.4 * Math.sin(time * (0.5 + st.r) + st.phase);
         plot(st.gi, st.r > 0.72 ? 2 : st.r > 0.4 ? 1 : 0, sx, sy, st.alpha * tw * dimBase, st.size);
       }
-
-      var ie = intro < 1 ? 1 - Math.pow(1 - intro, 2.2) : 1;
 
       // positions, computed once and shared by the three passes
       for (i = 0; i < parts.length; i++) {
@@ -1004,7 +1050,7 @@
       hole.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = hole;
       ctx.beginPath();
-      ctx.arc(cx, cy, R * 1.01, 0, TAU);
+      ctx.arc(cx, cy, R * (1.01 + 3.2 * collapse), 0, TAU);
       ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
@@ -1273,10 +1319,12 @@
       },
       themeChanged: function () {
         buildAtlas();
+        buildPage();
         if (!running) draw();
       },
       fontsReady: function () {
         buildAtlas();
+        buildPage();
         if (!running) draw();
       },
       isRunning: function () { return running; },

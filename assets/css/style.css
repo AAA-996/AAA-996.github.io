@@ -23,7 +23,7 @@
   --scrim: rgba(10, 10, 10, 0.82);
   --ticker-bg: rgba(10, 10, 10, 0.55);
   --backdrop: rgba(0, 0, 0, 0.66);
-  --node-bg: rgba(12, 12, 12, 0.55);
+  --node-bg: rgba(10, 10, 10, 0.82);
   --media-bg: #000;
   --grain-opacity: 0.05;
   --shadow: rgba(0, 0, 0, 0.6);
@@ -59,7 +59,7 @@
   --scrim: rgba(242, 242, 240, 0.84);
   --ticker-bg: rgba(242, 242, 240, 0.6);
   --backdrop: rgba(238, 238, 235, 0.7);
-  --node-bg: rgba(248, 248, 246, 0.6);
+  --node-bg: rgba(250, 250, 248, 0.88);
   --media-bg: #ddd;
   --grain-opacity: 0.045;
   --shadow: rgba(60, 60, 55, 0.18);
@@ -1387,13 +1387,19 @@ html[data-lang="en"] .lang-opt[data-lang-opt="en"] {
 }
 
 /* a scrim only over the text side, so the hole on the right stays clean */
-.pv-shell::before {
-  content: ";
+.pv-scrim {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
-  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 42%, transparent 60%);
+  background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 44%, transparent 62%);
+}
+
+.pv-bar,
+.pv-scroll,
+.pv-foot {
+  position: relative;
+  z-index: 1;
 }
 
 .pv-bar {
@@ -2353,7 +2359,7 @@ body.pv-open .statusbar {
 
 /* phones: the hole sits above the text, so the scrim runs vertically */
 @media (max-width: 900px) {
-  .pv-shell::before {
+  .pv-scrim {
     background: linear-gradient(
       180deg,
       transparent 0%,
@@ -2378,6 +2384,6 @@ body.pv-open .statusbar {
 
 .project-view[open] .pv-bar,
 .project-view[open] .pv-foot,
-.project-view[open] .pv-shell::before {
+.project-view[open] .pv-scrim {
   animation: pv-chrome 0.55s var(--ease) 0.64s both;
 }
