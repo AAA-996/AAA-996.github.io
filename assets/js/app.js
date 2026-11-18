@@ -163,10 +163,15 @@
         '<div class="orbit-slot" data-slot="' + i + '">' +
         '<button class="node" type="button" data-project="' + i + '" ' +
         'aria-label="' + esc(pick(w.title)) + '">' +
+        '<span class="node-top">' +
         '<span class="node-idx">' + pad(i + 1) + '</span>' +
         '<span class="node-arrow" aria-hidden="true">↗</span>' +
+        '</span>' +
         '<span class="node-title">' + L(w.short || w.title) + '</span>' +
-        '<span class="node-kind">' + L(w.kind || '') + '</span>' +
+        '<span class="node-blurb">' + L(w.kind || w.status || '') + '</span>' +
+        '<span class="node-explore">[ ' +
+        (w.sections && w.sections.length ? L('打开 ') + w.sections.length + L(' 个分支') : L('打开')) +
+        ' ]</span>' +
         '</button></div>'
       );
     }).join('');
@@ -200,22 +205,26 @@
     orbitState.cx = w / 2;
     orbitState.cy = cy;
     orbitState.ox = 0;
-    // slots sit at 50%/50% of the stage: this drops the stack onto the hole
+    // cards sit either side of the hole, level with its centre
     orbitState.oy = cy - h / 2;
+    orbitState.ry = 0;
+    orbitState.rx = Math.max(R * 2.42, w * 0.37);
     orbitState.R = R;
-    orbitState.gap = Math.max(34, R * 0.22);
   }
 
   var TILT = { x: 0, y: 0 };
 
-  // the links live inside the shadow, stacked on the hole's centre
+  // cards orbit the hole: left, right (and below when there are more)
   function paintOrbit(t) {
     if (!orbitState.active) return;
+    var base = [-Math.PI, 0, Math.PI / 2];
     var n = orbitState.slots.length;
-    var gap = orbitState.gap || 34;
     for (var i = 0; i < n; i++) {
-      var x = orbitState.ox + TILT.x * 5;
-      var y = orbitState.oy + (i - (n - 1) / 2) * gap + TILT.y * 4;
+      var a = base[i % base.length];
+      if (i >= base.length) a = base[i % base.length] + (i * TAU) / n;
+      var drift = Math.sin(t * 0.00022 + i * 2.1) * 0.02;
+      var x = orbitState.ox + Math.cos(a + drift) * orbitState.rx + TILT.x * 8;
+      var y = orbitState.oy + Math.sin(a + drift) * orbitState.ry + TILT.y * 6;
       orbitState.slots[i].style.transform =
         'translate(-50%, -50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
     }
@@ -390,7 +399,7 @@
       window.setTimeout(function () {
         if (mine !== seq || !dlg.open) return;
         revealBody();
-      }, Math.round(TOTAL * 0.72));
+      }, Math.round(TOTAL * 0.62));
 
       var closeBtn = $('#pv-close');
       if (closeBtn) closeBtn.focus({ preventScroll: true });
@@ -706,6 +715,7 @@
     var tiltV = 0;
     var dragging = false;
     var tl = null;
+    var eat = 0;
 
     function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
     function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
@@ -942,7 +952,7 @@
       var cy = g.cy + shift.y;
 
       if (page) {
-        var pBase = (o.pageAlpha == null ? 0.4 : o.pageAlpha) * (1 - collapse) * ie * grow;
+        var pBase = (o.pageAlpha == null ? 0.4 : o.pageAlpha) * (1 - eat) * (1 - collapse * 0.6) * ie * grow;
         var bands = 40;
         var bandH = h / bands;
         var srcH = page.height / bands;
@@ -1038,7 +1048,9 @@
       hole.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = hole;
       ctx.beginPath();
-      ctx.arc(cx, cy, Rh * (1.01 + 3.2 * collapse), 0, TAU);
+      var coverR = Math.hypot(w, h) * 0.62;
+      var eraseR = Math.max(Rh * (1.01 + 2.2 * collapse), eat * coverR);
+      ctx.arc(cx, cy, eraseR, 0, TAU);
       ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
@@ -1080,7 +1092,7 @@
         plot(gi, wob > 0.88 ? 4 : 3,
           cx + Math.cos(ra) * rr,
           cy + Math.sin(ra) * rr,
-          (0.35 + 0.65 * wob) * ie * grow * dimBase * (1 + hover * 0.55),
+          (0.35 + 0.65 * wob) * ie * grow * dimBase * (1 + hover * 0.55) * (1 - eat),
           0.8 + wob * 0.35);
       }
 
@@ -1163,22 +1175,27 @@
         var u = Math.min(1, (time - tl.t0) / tl.dur);
         var A = tl.amp;
         var sx, sy, ss, coll;
-        if (u < 0.42) {
-          var a1 = easeInOut(u / 0.42);
-          ss = lerp(tl.s0, A, a1);
-          coll = 0;
-          sx = lerp(tl.x0, tl.dx, a1 * 0.4);
-          sy = lerp(tl.y0, tl.dy, a1 * 0.4);
-        } else if (u < 0.72) {
-          var a2 = easeInOut((u - 0.42) / 0.3);
-          ss = lerp(A, 1, a2);
-          coll = a2;
-          sx = lerp(tl.x0 + (tl.dx - tl.x0) * 0.4, tl.dx, a2);
-          sy = lerp(tl.y0 + (tl.dy - tl.y0) * 0.4, tl.dy, a2);
+        if (u < 0.46) {
+          // the mouth opens: everything on screen slides into the shadow
+          var a1 = easeInOut(u / 0.46);
+          eat = a1;
+          coll = a1;
+          ss = tl.s0;
+          sx = tl.x0;
+          sy = tl.y0;
+        } else if (u < 0.54) {
+          // black beat — the hole is moved while nobody can see it
+          eat = 1;
+          coll = 1;
+          ss = tl.sc;
+          sx = tl.dx;
+          sy = tl.dy;
         } else {
-          var a3 = easeInOut((u - 0.72) / 0.28);
-          ss = lerp(1, tl.sc, a3);
+          // and it spits the page back out at the new slot
+          var a3 = easeInOut((u - 0.54) / 0.46);
+          eat = 1 - a3;
           coll = 1 - a3;
+          ss = tl.sc;
           sx = tl.dx;
           sy = tl.dy;
         }
@@ -1189,6 +1206,7 @@
         if (u >= 1) {
           shift.s = tl.sc;
           collapse = 0;
+          eat = 0;
           tl = null;
         }
       }
