@@ -926,10 +926,10 @@
       if (!atlas) return;
       ctx.clearRect(0, 0, w, h);
 
-      sizeBoost = (1 + (shift.s - 1) * 0.5) * (1 - 0.3 * collapse);
-      alphaMul = 1 - 0.3 * collapse;
+      sizeBoost = (1 + (shift.s - 1) * 0.5) * (1 - 0.25 * collapse);
+      alphaMul = 1 - 0.25 * collapse;
       var g = place(w, h);
-      var R = g.R * grow * shift.s * (1 - 0.55 * collapse);
+      var R = g.R * grow * shift.s;
       var cx = g.cx + shift.x;
       var cy = g.cy + shift.y;
 
@@ -958,7 +958,8 @@
       // positions, computed once and shared by the three passes
       for (i = 0; i < parts.length; i++) {
         p = parts[i];
-        p.rr = p.r + (1 - ie) * p.spread;
+        // collapse 1 → every particle sits exactly on the inner edge
+        p.rr = 1 + (p.r - 1) * (1 - collapse) + (1 - ie) * p.spread * (1 - collapse);
         var swirl = collapse * 2.8 / (0.35 + p.rr);
         p.ca = Math.cos(p.a + swirl);
         p.sa = Math.sin(p.a + swirl);
@@ -1050,10 +1051,10 @@
       }
 
       /* the point everything falls into — a small flash at full collapse */
-      if (collapse > 0.25) {
-        var f = (collapse - 0.25) / 0.75;
+      if (collapse > 0.55) {
+        var f = (collapse - 0.55) / 0.45;
         var sg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2.4);
-        sg.addColorStop(0, hexA(tints[4], 0.5 * f));
+        sg.addColorStop(0, hexA(tints[4], 0.32 * f));
         sg.addColorStop(0.3, hexA(tints[4], 0.12 * f));
         sg.addColorStop(1, hexA(tints[4], 0));
         ctx.fillStyle = sg;
