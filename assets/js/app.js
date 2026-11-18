@@ -428,22 +428,28 @@
       var dy = phone ? -0.16 : -0.07;
       var sc = phone ? 0.85 : 0.93;
 
-      // 1. every character spirals into the centre while the hole drifts to its
-      //    new slot — no cut, the field simply falls in on itself
-      if (heroHole) {
-        heroHole.collapseTo(1, 640);
-        heroHole.glideTo(dx, dy, 1, 680);
-      }
+      // 1. inhale: the whole field swells outward, the page recedes
+      if (heroHole) heroHole.zoomTo(1.42, 320);
 
-      // 2. it blooms back out of that point, and the text arrives with it
+      // 2. then it all falls back in, spiralling onto the rim, while the hole
+      //    drifts to its new slot
       window.setTimeout(function () {
         if (mine !== seq || !dlg.open) return;
         if (heroHole) {
-          heroHole.collapseTo(0, 900);
-          heroHole.glideTo(dx, dy, sc, 900);
+          heroHole.collapseTo(1, 520);
+          heroHole.glideTo(dx, dy, 1, 560);
+        }
+      }, 300);
+
+      // 3. and it blooms back out of that point, with the text arriving
+      window.setTimeout(function () {
+        if (mine !== seq || !dlg.open) return;
+        if (heroHole) {
+          heroHole.collapseTo(0, 820);
+          heroHole.glideTo(dx, dy, sc, 820);
         }
         revealBody();
-      }, 640);
+      }, 860);
 
       var closeBtn = $('#pv-close');
       if (closeBtn) closeBtn.focus({ preventScroll: true });
