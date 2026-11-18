@@ -2379,5 +2379,5 @@ body.pv-open .statusbar {
 .project-view[open] .pv-bar,
 .project-view[open] .pv-foot,
 .project-view[open] .pv-shell::before {
-  animation: pv-chrome 0.6s var(--ease) 0.34s both;
+  animation: pv-chrome 0.55s var(--ease) 0.64s both;
 }

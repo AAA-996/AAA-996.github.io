@@ -423,18 +423,27 @@
       doc.body.classList.add('is-locked');
       doc.body.classList.add('pv-open');
       root.classList.add('has-modal');
-      // 1. the field blows up until it fills the screen
-      if (heroHole) heroHole.zoomTo(2.45, 420);
+      var phone = window.innerWidth <= 900;
+      var dx = phone ? 0 : 0.25;
+      var dy = phone ? -0.16 : -0.07;
+      var sc = phone ? 0.85 : 0.93;
 
-      // 2. then it falls back into the right-hand slot while the text arrives
+      // 1. every character spirals into the centre while the hole drifts to its
+      //    new slot — no cut, the field simply falls in on itself
+      if (heroHole) {
+        heroHole.collapseTo(1, 640);
+        heroHole.glideTo(dx, dy, 1, 680);
+      }
+
+      // 2. it blooms back out of that point, and the text arrives with it
       window.setTimeout(function () {
         if (mine !== seq || !dlg.open) return;
         if (heroHole) {
-          if (window.innerWidth <= 900) heroHole.glideTo(0, -0.16, 0.85, 900);
-          else heroHole.glideTo(0.25, -0.07, 0.93, 900);
+          heroHole.collapseTo(0, 900);
+          heroHole.glideTo(dx, dy, sc, 900);
         }
         revealBody();
-      }, 380);
+      }, 640);
 
       var closeBtn = $('#pv-close');
       if (closeBtn) closeBtn.focus({ preventScroll: true });
@@ -478,7 +487,10 @@
         doc.body.classList.remove('pv-open');
         root.classList.remove('has-modal');
         // and glides back to the middle
-        if (heroHole) heroHole.glideTo(0, 0, 1, 700);
+        if (heroHole) {
+          heroHole.collapseTo(0, 620);
+          heroHole.glideTo(0, 0, 1, 700);
+        }
         if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
       });
 
@@ -736,10 +748,23 @@
     var shift = { x: 0, y: 0, s: 1, tx: 0, ty: 0, ts: 1 };
     var tween = null;
     var sizeBoost = 1;
+    // 0 = expanded, 1 = every character has spiralled into the centre
+    var collapse = 0;
+    var ctween = null;
+    var alphaMul = 1;
 
     function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
     function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
     function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function collapseTo(v, ms, ease) {
+      if (reduceMotion) {
+        collapse = v;
+        draw();
+        return;
+      }
+      ctween = { v0: collapse, v1: v, t0: time, dur: Math.max(0.05, ms / 1000), ease: ease || easeInOut };
+    }
 
     function tweenTo(target, ms, ease) {
       tween = {
@@ -880,7 +905,7 @@
       if (gi < 0 || alpha <= 0.004) return;
       var sp = sprite(gi, ti);
       var size = sp.size * scale * sizeBoost;
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = alpha * alphaMul;
       ctx.drawImage(atlas, sp.sx, sp.sy, cell, cell, x - size / 2, y - size / 2, size, size);
     }
 
@@ -901,9 +926,10 @@
       if (!atlas) return;
       ctx.clearRect(0, 0, w, h);
 
-      sizeBoost = 1 + (shift.s - 1) * 0.5;
+      sizeBoost = (1 + (shift.s - 1) * 0.5) * (1 - 0.3 * collapse);
+      alphaMul = 1 - 0.3 * collapse;
       var g = place(w, h);
-      var R = g.R * grow * shift.s;
+      var R = g.R * grow * shift.s * (1 - 0.55 * collapse);
       var cx = g.cx + shift.x;
       var cy = g.cy + shift.y;
 
@@ -920,8 +946,9 @@
       for (i = 0; i < stars.length; i++) {
         var st = stars[i];
         var sr = st.r * farR;
-        var sx = cx + Math.cos(st.a) * sr + (pointer.x - 0.5) * 26 * st.r;
-        var sy = cy + Math.sin(st.a) * sr * 0.88 + (pointer.y - 0.5) * 20 * st.r;
+        var sw = st.a + collapse * 2.2 / (0.3 + st.r);
+        var sx = cx + Math.cos(sw) * sr + (pointer.x - 0.5) * 26 * st.r;
+        var sy = cy + Math.sin(sw) * sr * 0.88 + (pointer.y - 0.5) * 20 * st.r;
         var tw = 0.6 + 0.4 * Math.sin(time * (0.5 + st.r) + st.phase);
         plot(st.gi, st.r > 0.72 ? 2 : st.r > 0.4 ? 1 : 0, sx, sy, st.alpha * tw * dimBase, st.size);
       }
@@ -932,8 +959,9 @@
       for (i = 0; i < parts.length; i++) {
         p = parts[i];
         p.rr = p.r + (1 - ie) * p.spread;
-        p.ca = Math.cos(p.a);
-        p.sa = Math.sin(p.a);
+        var swirl = collapse * 2.8 / (0.35 + p.rr);
+        p.ca = Math.cos(p.a + swirl);
+        p.sa = Math.sin(p.a + swirl);
         // cheap perspective: the near half of the disk is a touch larger
         p.persp = 1 + 0.16 * p.sa + tiltY * 0.05;
       }
@@ -1021,6 +1049,19 @@
           0.8 + wob * 0.35);
       }
 
+      /* the point everything falls into — a small flash at full collapse */
+      if (collapse > 0.25) {
+        var f = (collapse - 0.25) / 0.75;
+        var sg = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2.4);
+        sg.addColorStop(0, hexA(tints[4], 0.5 * f));
+        sg.addColorStop(0.3, hexA(tints[4], 0.12 * f));
+        sg.addColorStop(1, hexA(tints[4], 0));
+        ctx.fillStyle = sg;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R * 2.4, 0, TAU);
+        ctx.fill();
+      }
+
       /* disk, front half */
       for (i = 0; i < parts.length; i++) {
         p = parts[i];
@@ -1071,6 +1112,12 @@
       }
       if (intro < 1) intro = Math.min(1, intro + s / 1.4);
       if (grow < 1) grow = Math.min(1, grow + s * 0.75);
+
+      if (ctween) {
+        var cp = Math.min(1, (time - ctween.t0) / ctween.dur);
+        collapse = lerp(ctween.v0, ctween.v1, ctween.ease(cp));
+        if (cp >= 1) ctween = null;
+      }
 
       if (tween) {
         var p = Math.min(1, (time - tween.t0) / tween.dur);
@@ -1165,6 +1212,10 @@
           shift.s = shift.ts;
           draw();
         }
+      },
+      // the whole field spirals into the centre (1) or blooms back out (0)
+      collapseTo: function (v, ms, ease) {
+        collapseTo(v, ms, ease);
       },
       // phase A of the page change: blow the whole field up
       zoomTo: function (scale, ms) {
